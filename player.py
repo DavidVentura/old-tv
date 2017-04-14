@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import threading
+import time
 import os
 import random
 import gi
@@ -7,22 +8,25 @@ gi.require_version('Gst', '1.0')
 from gi.repository import GObject, Gst
 
 GObject.threads_init()
-
 Gst.init(None)
 
-BASEPATH = "/home/david/Downloads/SA86/"
+BASEPATH = "/home/david/git/old-tv/channels/3/0/"
+exiting = False
 
 
 class Main:
+    LAST_CHAPTER_TIME = 0
 
     def get_next_file(self):
         ret = "file://" + os.path.join(BASEPATH, random.choice(self.files))
         return ret
 
     def msg(self, bus, message):
-        print(message.type)
+        if message.type == Gst.MessageType.STATE_CHANGED:
+            return
+        # print(message.type)
         # print(message.parse())
-        pass
+        return
 
     def __init__(self, files):
         self.files = files
@@ -31,34 +35,32 @@ class Main:
         self.pipeline.bus.add_signal_watch()
         self.pipeline.bus.connect("message", self.msg)
 
-
         self.filesrc = Gst.ElementFactory.make("uridecodebin", "filesrc")
-        self.filesrc.set_property("uri", "file:///home/david/Downloads/SA86/TO4-C26.mkv")
+        self.filesrc.set_property("uri", self.get_next_file())
         self.filesrc.connect("pad-added", self.decode_src_created)
         self.pipeline.add(self.filesrc)
 
         self.input_v = Gst.ElementFactory.make("input-selector", "isv")
         self.pipeline.add(self.input_v)
 
+        vcaps = Gst.Caps.from_string("video/x-raw,width=576,height=432")
+        vfilter = Gst.ElementFactory.make("capsfilter", "vfilter")
+        vfilter.set_property("caps", vcaps)
+        self.pipeline.add(vfilter)
+        self.input_v.link(vfilter)
 
         self.vsink = Gst.ElementFactory.make("autovideosink", "vsink")
         self.pipeline.add(self.vsink)
 
-
         self.blankvideo = Gst.ElementFactory.make("videotestsrc", "snow")
-        self.blankvideo.set_property("pattern", 1)
-        #self.blankvideo.set_property("is-live", True)
+        self.blankvideo.set_property("pattern", "snow")
+        # self.blankvideo.set_property("is-live", True)
         self.pipeline.add(self.blankvideo)
-
-
-        # vcaps = Gst.Caps.from_string("video/x-raw,width=576,height=432")
-        # vfilter = Gst.ElementFactory.make("capsfilter", "vfilter")
-        # vfilter.set_property("caps", vcaps)
 
         self.blankaudio = Gst.ElementFactory.make("audiotestsrc", "noise")
         self.blankaudio.set_property("wave", "white-noise")
         self.blankaudio.set_property("volume", 0.02)
-        #self.blankaudio.set_property("is-live", True)
+        # self.blankaudio.set_property("is-live", True)
         self.pipeline.add(self.blankaudio)
 
         self.input_a = Gst.ElementFactory.make("input-selector", "isa")
@@ -68,7 +70,7 @@ class Main:
         self.pipeline.add(self.asink)
 
         self.input_a.link(self.asink)
-        self.input_v.link(self.vsink)
+        vfilter.link(self.vsink)
         self.blankvideo.link(self.input_v)
         self.blankaudio.link(self.input_a)
 
@@ -78,7 +80,6 @@ class Main:
         tpl_a = self.input_a.get_pad_template("sink_%u")
         self.iapad = self.input_a.request_pad(tpl_a, "sink_%u", None)
 
-    # handler taking care of linking the decoder's newly created source pad to the sink
     def decode_src_created(self, element, pad):
         padcaps = pad.query_caps()
         if padcaps.is_empty() or padcaps.get_size() == 0:
@@ -92,19 +93,17 @@ class Main:
         elif "video" in padname:
             pad.link(self.ivpad)
 
-
     def channel(self):
-        if self.filesrc.get_state != Gst.State.PLAYING:
-            self.filesrc.set_state(Gst.State.PLAYING)
-
+        print("Switching to Channel. Current clock: ", self.get_cur_time())
         snowpad = self.input_v.get_static_pad('sink_%d' % 1)
         self.input_v.set_property('active-pad', snowpad)
 
         snowpad = self.input_a.get_static_pad('sink_%d' % 1)
         self.input_a.set_property('active-pad', snowpad)
+        GObject.timeout_add(100, self.seek, self.LAST_CHAPTER_TIME)
 
     def get_cur_time(self):
-        #delta = (self.filesrc.get_clock().get_time() - self.INITIAL_TIME)
+        # delta = (self.filesrc.get_clock().get_time() - self.INITIAL_TIME)
         _, delta = self.pipeline.query_position(Gst.Format.TIME)
         return delta / 1000000000
 
@@ -112,15 +111,14 @@ class Main:
         # help(self.filesrc)
         # help(Gst.Format)
         # help(self.input_v.get_property('active_pad'))
+        self.LAST_CHAPTER_TIME = self.get_cur_time()
 
+        print("Switching to snow. Current clock: ", self.get_cur_time())
         snowpad = self.input_v.get_static_pad('sink_%d' % 0)
         self.input_v.set_property('active-pad', snowpad)
 
         snowpad = self.input_a.get_static_pad('sink_%d' % 0)
         self.input_a.set_property('active-pad', snowpad)
-
-        if self.filesrc.get_state != Gst.State.READY:
-            self.filesrc.set_state(Gst.State.READY)
 
     # running the shit
     def run(self):
@@ -128,6 +126,7 @@ class Main:
         self.mainloop.run()
 
     def change_uri(self):
+        self.LAST_CHAPTER_TIME = 0
         nf = self.get_next_file()
         print(nf)
         self.pipeline.set_state(Gst.State.READY)
@@ -139,11 +138,14 @@ class Main:
         # self.filesrc.seek_simple(Gst.Format.TIME,
         #                          Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT,
         #                          seek_time_secs * Gst.SECOND)
+        print("Seeking to", seek_time_secs)
         self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH,
                                   seek_time_secs * Gst.SECOND)
+        return False  # To get the timeout interval to stop
 
 
 def control(target):
+    global exiting
     data = ""
     while data != "q":
         data = input()
@@ -159,6 +161,7 @@ def control(target):
             except Exception:
                 print("Exiting control")
                 break
+    exiting = True
 
 
 def main():
