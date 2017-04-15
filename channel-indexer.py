@@ -25,15 +25,19 @@ def get_files(path):
     return sorted(ret)
 
 
-channels = get_directories(BASEPATH)
-data = {}
-for c in channels:
-    data[c] = {}
-    channel_path = os.path.join(BASEPATH, c)
-    for p in get_directories(channel_path):
-        program_path = os.path.join(channel_path, p)
-        data[c][p] = get_files(program_path)
+def index():
+    channels = get_directories(BASEPATH)
+    data = {}
+    for c in channels:
+        data[c] = {}
+        channel_path = os.path.join(BASEPATH, c)
+        for p in get_directories(channel_path):
+            program_path = os.path.join(channel_path, p)
+            data[c][p] = get_files(program_path)
 
-ads = get_files(ADS_PATH)
-print(data)
-print(ads)
+    ads = get_files(ADS_PATH)
+    return {'ads': ads, 'channels': data}
+
+
+if __name__ == '__main__':
+    print(index())
