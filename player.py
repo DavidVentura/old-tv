@@ -11,6 +11,7 @@ class Player:
     NEXT_FILE = None
     LAST_CHAPTER_TIME = 0
     DURATION = 0
+    CHANGING_URI = False
 
 
     def msg(self, bus, message):
@@ -37,10 +38,15 @@ class Player:
         self.input_v = Gst.ElementFactory.make("input-selector", "isv")
         self.pipeline.add(self.input_v)
 
+        vscaler = Gst.ElementFactory.make("videoscale", None)
+        self.pipeline.add(vscaler)
+
         vcaps = Gst.Caps.from_string("video/x-raw,width=576,height=432")
+        # vcaps = Gst.Caps.from_string("video/x-raw,width=640,height=480")
         vfilter = Gst.ElementFactory.make("capsfilter", "vfilter")
         vfilter.set_property("caps", vcaps)
         self.pipeline.add(vfilter)
+
         self.input_v.link(vfilter)
 
         vsink = Gst.ElementFactory.make("autovideosink", "vsink")
@@ -88,8 +94,9 @@ class Player:
             print('scheduling next track and dropping EOS-Event')
             # if pad.get_name() == "src_1" or pad.get_name() == "src_0":
             if self.DURATION <= self.get_cur_time() + 5:
-                # TODO: Avoid reentry
-                GObject.idle_add(self.change_uri)
+                if not self.CHANGING_URI:
+                    GObject.idle_add(self.change_uri)
+
             return Gst.PadProbeReturn.DROP
 
         return Gst.PadProbeReturn.PASS
@@ -106,6 +113,7 @@ class Player:
         padstr = padcaps.get_structure(0)
         padname = padstr.get_name()
 
+        print(padname)
         if "audio" in padname:
             pad.link(self.iapad)
         elif "video" in padname:
@@ -142,14 +150,18 @@ class Player:
         self.mainloop.run()
 
     def change_uri(self):
+        self.CHANGING_URI = True
         self.LAST_CHAPTER_TIME = 0
         self.DURATION = 0
         self.pipeline.set_state(Gst.State.READY)
         self.filesrc.set_property("uri", self.NEXT_FILE)
         self.pipeline.set_state(Gst.State.PLAYING)
         self.channel()
+        self.CHANGING_URI = False
 
     def set_next_file(self, uri):
+        print(self.NEXT_FILE)
+        print(uri)
         self.NEXT_FILE = uri
 
     def update_duration(self):
