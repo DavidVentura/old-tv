@@ -117,7 +117,7 @@ class Player:
         padstr = padcaps.get_structure(0)
         padname = padstr.get_name()
 
-        print(padname)
+        print("Padname:", padname)
         if "audio" in padname:
             pad.link(self.iapad)
         elif "video" in padname:
@@ -164,8 +164,8 @@ class Player:
         self.CHANGING_URI = False
 
     def set_next_file(self, uri):
-        print(self.NEXT_FILE)
-        print(uri)
+        print("New      Next file:", uri)
+        print("Current  Next file:", self.NEXT_FILE)
         self.NEXT_FILE = uri
 
     def update_duration(self):
