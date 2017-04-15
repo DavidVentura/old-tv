@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-import threading
-import time
-import os
-import random
 import gi
 import sys
 gi.require_version('Gst', '1.0')
@@ -11,17 +6,12 @@ from gi.repository import GObject, Gst
 GObject.threads_init()
 Gst.init(None)
 
-BASEPATH = "/home/david/git/old-tv/channels/3/0/"
-exiting = False
 
-
-class Main:
+class Player:
+    NEXT_FILE = None
     LAST_CHAPTER_TIME = 0
     DURATION = 0
 
-    def get_next_file(self):
-        ret = "file://" + os.path.join(BASEPATH, random.choice(self.files))
-        return ret
 
     def msg(self, bus, message):
         t = message.type
@@ -34,8 +24,7 @@ class Main:
         # print(message.parse())
         return
 
-    def __init__(self, files):
-        self.files = files
+    def __init__(self):
         self.mainloop = GObject.MainLoop()
         self.pipeline = Gst.Pipeline.new("mypipeline")
         self.pipeline.bus.add_signal_watch()
@@ -85,7 +74,7 @@ class Main:
         tpl_a = self.input_a.get_pad_template("sink_%u")
         self.iapad = self.input_a.request_pad(tpl_a, "sink_%u", None)
 
-        self.change_uri(self.get_next_file())
+        # self.change_uri(self.get_next_file())
 
     def on_pad_event(self, pad, info):
         event = info.get_event()
@@ -100,7 +89,7 @@ class Main:
             # if pad.get_name() == "src_1" or pad.get_name() == "src_0":
             if self.DURATION <= self.get_cur_time() + 5:
                 # TODO: Avoid reentry
-                GObject.idle_add(self.change_uri, self.get_next_file())
+                GObject.idle_add(self.change_uri)
             return Gst.PadProbeReturn.DROP
 
         return Gst.PadProbeReturn.PASS
@@ -152,13 +141,16 @@ class Main:
         self.pipeline.set_state(Gst.State.PLAYING)
         self.mainloop.run()
 
-    def change_uri(self, uri):
+    def change_uri(self):
         self.LAST_CHAPTER_TIME = 0
         self.DURATION = 0
         self.pipeline.set_state(Gst.State.READY)
-        self.filesrc.set_property("uri", uri)
+        self.filesrc.set_property("uri", self.NEXT_FILE)
         self.pipeline.set_state(Gst.State.PLAYING)
         self.channel()
+
+    def set_next_file(self, uri):
+        self.NEXT_FILE = uri
 
     def update_duration(self):
         _, d = self.filesrc.query_duration(Gst.Format.TIME)
@@ -173,39 +165,3 @@ class Main:
                                   seek_time_secs * Gst.SECOND)
         #   | Gst.SeekFlags.KEY_UNIT,
         return False  # To get the timeout interval to stop
-
-
-def control(target):
-    global exiting
-    data = ""
-    while data != "q":
-        data = input()
-        if data == "next" or data == "n":
-            target.change_uri(target.get_next_file())
-        elif data == "snow" or data == "s":
-            target.snow()
-        elif data == "channel" or data == "c":
-            target.channel()
-        else:
-            try:
-                target.seek(float(data))
-            except Exception:
-                print("Exiting control")
-                break
-    exiting = True
-
-
-def main():
-    files = [f for f in os.listdir(BASEPATH)
-             if os.path.isfile(os.path.join(BASEPATH, f)) and
-             (f.endswith("mp4") or f.endswith("mkv"))]
-
-    start = Main(files)
-    t1 = threading.Thread(target=control, args=(start,))
-    t1.start()
-    start.run()
-    t1.join()
-
-
-if __name__ == "__main__":
-    main()
