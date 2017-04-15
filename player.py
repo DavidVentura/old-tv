@@ -4,6 +4,7 @@ import time
 import os
 import random
 import gi
+import sys
 gi.require_version('Gst', '1.0')
 from gi.repository import GObject, Gst
 
@@ -23,8 +24,12 @@ class Main:
         return ret
 
     def msg(self, bus, message):
-        if message.type == Gst.MessageType.STATE_CHANGED:
+        t = message.type 
+        if t == Gst.MessageType.STATE_CHANGED:
             return
+        if t == Gst.MessageType.EOS:
+            print("We got EOS on the pipeline.")
+            sys.exit(1)
         # print(message.type)
         # print(message.parse())
         return
@@ -83,7 +88,28 @@ class Main:
 
         self.change_uri()
 
+    def on_pad_event(self, pad, info):
+        event = info.get_event()
+        # print('event %s on pad %s', event.type, pad)
+
+        if event.type == Gst.EventType.EOS:
+            print("Pad: %s, child of: %s" %
+                  (pad.get_name(), pad.parent.get_name()))
+            print("Current time:", self.get_cur_time())
+            print("Duration", self.DURATION)
+            print('scheduling next track and dropping EOS-Event')
+            # if pad.get_name() == "src_1" or pad.get_name() == "src_0":
+            if self.DURATION <= self.get_cur_time() + 5:
+                GObject.idle_add(self.change_uri)
+            return Gst.PadProbeReturn.DROP
+
+        return Gst.PadProbeReturn.PASS
+
     def decode_src_created(self, element, pad):
+        pad.add_probe(
+             Gst.PadProbeType.EVENT_DOWNSTREAM | Gst.PadProbeType.BLOCK,
+             self.on_pad_event
+        )
         padcaps = pad.query_caps()
         if padcaps.is_empty() or padcaps.get_size() == 0:
             print("Padcaps empty!!")
