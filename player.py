@@ -25,7 +25,8 @@ class Player:
         # print(message.parse())
         return
 
-    def __init__(self):
+    def __init__(self, on_finished):
+        self.on_finished = on_finished
         self.mainloop = GObject.MainLoop()
         self.pipeline = Gst.Pipeline.new("mypipeline")
         self.pipeline.bus.add_signal_watch()
@@ -98,8 +99,8 @@ class Player:
             print('scheduling next track and dropping EOS-Event')
             # if pad.get_name() == "src_1" or pad.get_name() == "src_0":
             if self.DURATION <= self.get_cur_time() + 5:
-                if not self.CHANGING_URI:
-                    GObject.idle_add(self.change_uri)
+                if self.on_finished is not None:
+                    self.on_finished()
 
             return Gst.PadProbeReturn.DROP
 
@@ -154,6 +155,9 @@ class Player:
         self.mainloop.run()
 
     def change_uri(self):
+        if self.CHANGING_URI:
+            print("Can't nest change_uri calls")
+            return
         self.CHANGING_URI = True
         self.LAST_CHAPTER_TIME = 0
         self.DURATION = 0
