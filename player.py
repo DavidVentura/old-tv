@@ -24,7 +24,7 @@ class Main:
         return ret
 
     def msg(self, bus, message):
-        t = message.type 
+        t = message.type
         if t == Gst.MessageType.STATE_CHANGED:
             return
         if t == Gst.MessageType.EOS:
@@ -42,7 +42,6 @@ class Main:
         self.pipeline.bus.connect("message", self.msg)
 
         self.filesrc = Gst.ElementFactory.make("uridecodebin", "filesrc")
-        # self.filesrc.set_property("uri", self.get_next_file())
         self.filesrc.connect("pad-added", self.decode_src_created)
         self.pipeline.add(self.filesrc)
 
@@ -55,30 +54,30 @@ class Main:
         self.pipeline.add(vfilter)
         self.input_v.link(vfilter)
 
-        self.vsink = Gst.ElementFactory.make("autovideosink", "vsink")
-        self.pipeline.add(self.vsink)
+        vsink = Gst.ElementFactory.make("autovideosink", "vsink")
+        self.pipeline.add(vsink)
 
-        self.blankvideo = Gst.ElementFactory.make("videotestsrc", "snow")
-        self.blankvideo.set_property("pattern", "snow")
-        # self.blankvideo.set_property("is-live", True)
-        self.pipeline.add(self.blankvideo)
+        blankvideo = Gst.ElementFactory.make("videotestsrc", "snow")
+        blankvideo.set_property("pattern", "snow")
+        # blankvideo.set_property("is-live", True)
+        self.pipeline.add(blankvideo)
 
-        self.blankaudio = Gst.ElementFactory.make("audiotestsrc", "noise")
-        self.blankaudio.set_property("wave", "white-noise")
-        self.blankaudio.set_property("volume", 0.02)
-        # self.blankaudio.set_property("is-live", True)
-        self.pipeline.add(self.blankaudio)
+        blankaudio = Gst.ElementFactory.make("audiotestsrc", "noise")
+        blankaudio.set_property("wave", "white-noise")
+        blankaudio.set_property("volume", 0.02)
+        # blankaudio.set_property("is-live", True)
+        self.pipeline.add(blankaudio)
 
         self.input_a = Gst.ElementFactory.make("input-selector", "isa")
         self.pipeline.add(self.input_a)
 
-        self.asink = Gst.ElementFactory.make("autoaudiosink", "asink")
-        self.pipeline.add(self.asink)
+        asink = Gst.ElementFactory.make("autoaudiosink", "asink")
+        self.pipeline.add(asink)
 
-        self.input_a.link(self.asink)
-        vfilter.link(self.vsink)
-        self.blankvideo.link(self.input_v)
-        self.blankaudio.link(self.input_a)
+        self.input_a.link(asink)
+        vfilter.link(vsink)
+        blankvideo.link(self.input_v)
+        blankaudio.link(self.input_a)
 
         tpl_v = self.input_v.get_pad_template("sink_%u")
         self.ivpad = self.input_v.request_pad(tpl_v, "sink_%u", None)
@@ -86,7 +85,7 @@ class Main:
         tpl_a = self.input_a.get_pad_template("sink_%u")
         self.iapad = self.input_a.request_pad(tpl_a, "sink_%u", None)
 
-        self.change_uri()
+        self.change_uri(self.get_next_file())
 
     def on_pad_event(self, pad, info):
         event = info.get_event()
@@ -100,7 +99,8 @@ class Main:
             print('scheduling next track and dropping EOS-Event')
             # if pad.get_name() == "src_1" or pad.get_name() == "src_0":
             if self.DURATION <= self.get_cur_time() + 5:
-                GObject.idle_add(self.change_uri)
+                # TODO: Avoid reentry
+                GObject.idle_add(self.change_uri, self.get_next_file())
             return Gst.PadProbeReturn.DROP
 
         return Gst.PadProbeReturn.PASS
@@ -138,9 +138,6 @@ class Main:
         return delta / 1000000000
 
     def snow(self):
-        # help(self.filesrc)
-        # help(Gst.Format)
-        # help(self.input_v.get_property('active_pad'))
         self.LAST_CHAPTER_TIME = self.get_cur_time()
 
         print("Switching to snow. Current clock: ", self.get_cur_time())
@@ -155,13 +152,11 @@ class Main:
         self.pipeline.set_state(Gst.State.PLAYING)
         self.mainloop.run()
 
-    def change_uri(self):
+    def change_uri(self, uri):
         self.LAST_CHAPTER_TIME = 0
         self.DURATION = 0
-        nf = self.get_next_file()
-        print(nf)
         self.pipeline.set_state(Gst.State.READY)
-        self.filesrc.set_property("uri", nf)
+        self.filesrc.set_property("uri", uri)
         self.pipeline.set_state(Gst.State.PLAYING)
         self.channel()
 
@@ -186,7 +181,7 @@ def control(target):
     while data != "q":
         data = input()
         if data == "next" or data == "n":
-            target.change_uri()
+            target.change_uri(target.get_next_file())
         elif data == "snow" or data == "s":
             target.snow()
         elif data == "channel" or data == "c":
