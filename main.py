@@ -6,57 +6,65 @@ import random
 import channel_indexer as ci
 from pprint import pprint
 
-BASEPATH = "/home/david/git/old-tv/channels/"
-ADS_PATH = "/home/david/git/old-tv/ads/"
 
+class TrackProgram():
+    BASEPATH = "/home/david/git/old-tv/channels/"
+    ADS_PATH = "/home/david/git/old-tv/ads/"
+    guide = {}
+    channel = 3
+    program = 0
 
-def get_next_file(guide, channel, program):
-    files = guide[channel][program]
-    ret = os.path.join(BASEPATH,
-                       str(channel),
-                       str(program),
-                       random.choice(files))
-    return "file://" + ret
+    def get_next_file(self):
+        # FIXME: Not random
+        files = self.guide['channels'][self.channel][self.program]
+        ret = os.path.join(self.BASEPATH,
+                           str(self.channel),
+                           str(self.program),
+                           random.choice(files))
+        return "file://" + ret
 
+    def get_random_ad(self):
+        return "file://" + os.path.join(self.ADS_PATH,
+                                        random.choice(self.guide['ads']))
 
-def get_random_ad(ads):
-    return "file://" + os.path.join(ADS_PATH, random.choice(ads))
+    def control(self):
+        data = ""
+        while data != "q":
+            data = input()
+            if data == "next" or data == "n":
+                self.player.change_uri(self.player.get_next_file())
+            elif data == "snow" or data == "s":
+                self.player.snow()
+            elif data == "channel" or data == "c":
+                self.player.channel()
+            elif data.startswith("uri") or data == "u":
+                self.player.set_next_file(self.get_random_ad())
+            else:
+                try:
+                    self.player.seek(float(data))
+                except Exception:
+                    print("Exiting control")
+                    break
 
-
-def control(target, ads):
-    data = ""
-    while data != "q":
-        data = input()
-        if data == "next" or data == "n":
-            target.change_uri(target.get_next_file())
-        elif data == "snow" or data == "s":
-            target.snow()
-        elif data == "channel" or data == "c":
-            target.channel()
-        elif data.startswith("uri") or data == "u":
-            target.set_next_file(get_random_ad(ads))
+    def finished_playing(self):
+        if self.current_file['type'] == 'ad':
+            self.player.set_next_file(self.get_next_file())
         else:
-            try:
-                target.seek(float(data))
-            except Exception:
-                print("Exiting control")
-                break
+            self.player.set_next_file(self.get_random_ad())
 
+    def __init__(self):
+        self.guide = ci.index()
+        self.current_file = {}
+        # pprint(channels)
+        self.player = Player(on_finished=self.finished_playing)
+        self.player.set_next_file(self.get_next_file())
+        self.player.change_uri()
 
-def main():
-    data = ci.index()
-    ads = data["ads"]
-    channels = data["channels"]
-    # pprint(channels)
-    p = Player()
-    p.set_next_file(get_next_file(channels, 3, 1))
-    p.change_uri()
-
-    t1 = threading.Thread(target=control, args=(p, ads))
-    t1.start()
-    p.run()
-    t1.join()
+        t1 = threading.Thread(target=self.control)
+        t1.start()
+        self.player.run()
+        t1.join()
 
 
 if __name__ == "__main__":
-    main()
+    t = TrackProgram()
