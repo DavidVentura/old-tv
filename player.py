@@ -38,19 +38,10 @@ class Player:
         self.input_v = Gst.ElementFactory.make("input-selector", "isv")
         self.pipeline.add(self.input_v)
 
-        vscaler = Gst.ElementFactory.make("videoscale", None)
-        self.pipeline.add(vscaler)
-
-        vcaps = Gst.Caps.from_string("video/x-raw,width=576,height=432")
-        # vcaps = Gst.Caps.from_string("video/x-raw,width=640,height=480")
-        vfilter = Gst.ElementFactory.make("capsfilter", "vfilter")
-        vfilter.set_property("caps", vcaps)
-        self.pipeline.add(vfilter)
-
-        self.input_v.link(vfilter)
-
         vsink = Gst.ElementFactory.make("autovideosink", "vsink")
         self.pipeline.add(vsink)
+
+        self.input_v.link(vsink)
 
         blankvideo = Gst.ElementFactory.make("videotestsrc", "snow")
         blankvideo.set_property("pattern", "snow")
@@ -70,7 +61,7 @@ class Player:
         self.pipeline.add(asink)
 
         self.input_a.link(asink)
-        vfilter.link(vsink)
+        #vfilter.link(vsink)
         blankvideo.link(self.input_v)
         blankaudio.link(self.input_a)
 
@@ -80,6 +71,19 @@ class Player:
         tpl_a = self.input_a.get_pad_template("sink_%u")
         self.iapad = self.input_a.request_pad(tpl_a, "sink_%u", None)
 
+        self.vscaler = Gst.ElementFactory.make("videoscale", "vscale")
+        self.pipeline.add(self.vscaler)
+
+        # vcaps = Gst.Caps.from_string("video/x-raw,width=576,height=432")
+        # vcaps = Gst.Caps.from_string("video/x-raw,width=640,height=480")
+        # vfilter = Gst.ElementFactory.make("capsfilter", "vfilter")
+        # vfilter.set_property("caps", vcaps)
+        # self.pipeline.add(vfilter)
+
+        # self.input_v.link(vfilter)
+
+        # for c in self.pipeline.children:
+        #    print(c.get_name())
         # self.change_uri(self.get_next_file())
 
     def on_pad_event(self, pad, info):
