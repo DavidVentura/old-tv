@@ -16,6 +16,7 @@ exiting = False
 
 class Main:
     LAST_CHAPTER_TIME = 0
+    DURATION = 0
 
     def get_next_file(self):
         ret = "file://" + os.path.join(BASEPATH, random.choice(self.files))
@@ -36,7 +37,7 @@ class Main:
         self.pipeline.bus.connect("message", self.msg)
 
         self.filesrc = Gst.ElementFactory.make("uridecodebin", "filesrc")
-        self.filesrc.set_property("uri", self.get_next_file())
+        # self.filesrc.set_property("uri", self.get_next_file())
         self.filesrc.connect("pad-added", self.decode_src_created)
         self.pipeline.add(self.filesrc)
 
@@ -80,6 +81,8 @@ class Main:
         tpl_a = self.input_a.get_pad_template("sink_%u")
         self.iapad = self.input_a.request_pad(tpl_a, "sink_%u", None)
 
+        self.change_uri()
+
     def decode_src_created(self, element, pad):
         padcaps = pad.query_caps()
         if padcaps.is_empty() or padcaps.get_size() == 0:
@@ -101,6 +104,7 @@ class Main:
         snowpad = self.input_a.get_static_pad('sink_%d' % 1)
         self.input_a.set_property('active-pad', snowpad)
         GObject.timeout_add(100, self.seek, self.LAST_CHAPTER_TIME)
+        GObject.timeout_add(300, self.update_duration)
 
     def get_cur_time(self):
         # delta = (self.filesrc.get_clock().get_time() - self.INITIAL_TIME)
@@ -127,6 +131,7 @@ class Main:
 
     def change_uri(self):
         self.LAST_CHAPTER_TIME = 0
+        self.DURATION = 0
         nf = self.get_next_file()
         print(nf)
         self.pipeline.set_state(Gst.State.READY)
@@ -134,13 +139,18 @@ class Main:
         self.pipeline.set_state(Gst.State.PLAYING)
         self.channel()
 
+    def update_duration(self):
+        _, d = self.filesrc.query_duration(Gst.Format.TIME)
+        self.DURATION = d / 1000000000
+        print("Duration:", self.DURATION)
+        return False  # To get the timeout interval to stop
+
     def seek(self, seek_time_secs):
-        # self.filesrc.seek_simple(Gst.Format.TIME,
-        #                          Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT,
-        #                          seek_time_secs * Gst.SECOND)
+        seek_time_secs = min(seek_time_secs, max(self.DURATION - 1, 0))
         print("Seeking to", seek_time_secs)
         self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH,
                                   seek_time_secs * Gst.SECOND)
+        #   | Gst.SeekFlags.KEY_UNIT,
         return False  # To get the timeout interval to stop
 
 
