@@ -13,7 +13,6 @@ class Player:
     DURATION = 0
     CHANGING_URI = False
 
-
     def msg(self, bus, message):
         t = message.type
         if t == Gst.MessageType.STATE_CHANGED:
@@ -131,7 +130,7 @@ class Player:
 
         snowpad = self.input_a.get_static_pad('sink_%d' % 1)
         self.input_a.set_property('active-pad', snowpad)
-        GObject.timeout_add(100, self.seek, self.LAST_CHAPTER_TIME)
+        GObject.timeout_add(120, self.seek, self.LAST_CHAPTER_TIME)
         GObject.timeout_add(300, self.update_duration)
 
     def get_cur_time(self):
@@ -154,13 +153,13 @@ class Player:
         self.pipeline.set_state(Gst.State.PLAYING)
         self.mainloop.run()
 
-    def change_uri(self):
+    def change_uri(self, start_time=0, duration=0):
         if self.CHANGING_URI:
             print("Can't nest change_uri calls")
             return
         self.CHANGING_URI = True
-        self.LAST_CHAPTER_TIME = 0
-        self.DURATION = 0
+        self.LAST_CHAPTER_TIME = start_time
+        self.DURATION = duration
         self.pipeline.set_state(Gst.State.READY)
         self.filesrc.set_property("uri", self.NEXT_FILE)
         self.pipeline.set_state(Gst.State.PLAYING)
@@ -179,6 +178,7 @@ class Player:
         return False  # To get the timeout interval to stop
 
     def seek(self, seek_time_secs):
+        print("Asked to seek to: ", seek_time_secs)
         seek_time_secs = min(seek_time_secs, max(self.DURATION - 1, 0))
         print("Seeking to", seek_time_secs)
         self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH,
