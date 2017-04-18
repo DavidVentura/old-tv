@@ -7,6 +7,66 @@ import channel_indexer as ci
 from pprint import pprint
 
 
+def sanitize_status(s, guide):
+    status = s
+    channels = guide['channels']
+    ads = guide['ads']
+    for channel in status.keys():
+        if 'curType' not in status[channel]:
+            status[channel]['curType'] = 'program'
+
+        if 'curFileIndex' not in status[channel]:
+            status[channel]['curFileIndex'] = 0
+
+        if 'curFileTime' not in status[channel]:
+            status[channel]['curFileTime'] = 0
+
+        if status[channel]['curType'] == 'ad':
+            status[channel]['curFileIndex'] = status[channel]['curFileIndex']\
+                % len(ads)
+        else:
+            status[channel]['curProgram'] = status[channel]['curProgram']\
+                % len(channels[channel])
+            status[channel]['curFileIndex'] = status[channel]['curFileIndex']\
+                % len(channels[channel][status[channel]['curProgram']])
+
+        if 'lastChapter' not in status[channel]:
+            status[channel]['lastChapter'] = {}
+
+        for program in channels[channel]:
+            if program not in status[channel]['lastChapter']:
+                status[channel]['lastChapter'][program] = -1
+
+    return status
+
+
+def load_status():
+    # TODO: Load this from a file
+    return {
+            2: {
+                'curType': 'ad',
+                'curFileIndex': 5,
+                'curFileTime': 10,
+                'curFileDuration': 40,
+                'lastProgramIndex': 0,
+               },
+            3: {
+                'curType': 'program',
+                'curProgram': 0,
+                'curFileTime': 10,
+                'curFileDuration': 40,
+                'lastProgramIndex': 0,
+               },
+            5: {
+                'curType': 'program',
+                'curProgram': 0,
+                'curFileTime': 10,
+                'curFileDuration': 40,
+                'lastProgramIndex': 0,
+               },
+            }
+
+
 class TrackProgram():
     BASEPATH = "/home/david/git/old-tv/channels/"
     ADS_PATH = "/home/david/git/old-tv/ads/"
@@ -14,25 +74,20 @@ class TrackProgram():
     channel = 3
     program = 0
     status = {}
-    # status[channel] = {
-    #   type: 'ad', file: '...',
-    #   chapterIndex: 0, programIndex: 0,
-    #   time: 100s
-    # }
 
     def get_cur_file(self):
         s = self.get_current_status()
         ret = ''
         if s['curType'] == 'ad':
-            s['curFileIndex'] = s['curFileIndex'] % len(self.guide['ads'])
-
             ret = os.path.join(self.ADS_PATH,
                                self.guide['ads'][s['curFileIndex']])
         else:
-            if 'lastChapter' not in s:
+            curfidx = s['lastChapter'][self.program]
+            if curfidx == -1:
                 curfidx = 0
-            else:
-                curfidx = s['lastChapter'][self.program]
+                # FIXME: What do I do about this?
+                # Setting -1 as having not played a single file
+                # Destroys this part.
 
             ret = os.path.join(self.BASEPATH,
                                str(self.channel),
@@ -64,14 +119,8 @@ class TrackProgram():
         data = ""
         while data != "q":
             data = input()
-            if data == "next" or data == "n":
-                self.player.change_uri(self.player.get_next_file())
-            elif data == "snow" or data == "s":
-                self.player.snow()
-            elif data == "channel" or data == "c":
-                self.player.channel()
-            elif data.startswith("uri") or data == "u":
-                self.player.set_next_file(self.get_random_ad())
+            if data == "s":
+                pprint(self.status)
             elif data == "+":
                 self.set_channel(self.channel + 1)
             elif data == "-":
@@ -111,12 +160,17 @@ class TrackProgram():
         if cs['curType'] == 'ad':
             self.set_current_status('curType', 'program')
             if 'lastChapter' in cs:
-                pprint(cs['lastChapter'])
-                pprint(cs['lastChapter'][cs['lastProgramIndex']])
-                idx = cs['lastChapter'][cs['lastProgramIndex']] + 1
-                idx = idx % len(self.guide['channels'][self.channel][self.program])
+                next_program = (cs['lastProgramIndex'] + 1) %\
+                    len(self.guide['channels'][self.channel])
+
+                idx = cs['lastChapter'][next_program] + 1 % \
+                    len(self.guide['channels'][self.channel][self.program])
+                # Taking index from lastProgramIndex..
+                # should take from the next program
+
                 self.program = (self.program + 1) % \
-                               len(self.guide['channels'][self.channel])
+                    len(self.guide['channels'][self.channel])
+                self.set_current_status('curProgram', self.program)
 
         else:  # Just finished a chapter. Go to an ad
             self.set_current_status('lastProgramIndex', self.program)
@@ -130,37 +184,11 @@ class TrackProgram():
         # curFileIndex is used for get_next_file()
         new_file = self.get_next_file()
         self.player.set_next_file(new_file)
-        bname = os.path.basename(new_file)
 
         self.set_current_status('curFileTime', 0)
         # self.set_current_status('curFileDuration', 10) # FIXME
         self.player.change_uri()
 
-    def load_status(self):
-        # TODO: Load this from a file
-        return {
-                2: {
-                    'curType': 'ad',
-                    'curFileIndex': 5,
-                    'curFileTime': 10,
-                    'curFileDuration': 40,
-                    'lastProgramIndex': 0,
-                   },
-                3: {
-                    'curType': 'program',
-                    'curFileIndex': 5,
-                    'curFileTime': 10,
-                    'curFileDuration': 40,
-                    'lastProgramIndex': 0,
-                   },
-                5: {
-                    'curType': 'program',
-                    'curFileIndex': 5,
-                    'curFileTime': 10,
-                    'curFileDuration': 40,
-                    'lastProgramIndex': 0,
-                   },
-                }
 
     def set_channel(self, channel):
         self.set_current_status('curFileTime', self.player.get_cur_time())
@@ -170,8 +198,9 @@ class TrackProgram():
             self.player.snow()
             return
 
-        self.player.set_next_file(self.get_cur_file())
         cs = self.get_current_status()
+        self.program = cs['curProgram']
+        self.player.set_next_file(self.get_cur_file())
         self.player.change_uri(start_time=cs['curFileTime'],
                                duration=cs['curFileDuration'])
 
@@ -180,7 +209,7 @@ class TrackProgram():
         # FIXME: Sorts... badly
         self.valid_channels = self.guide['channels'].keys()
 
-        self.status = self.load_status()
+        self.status = sanitize_status(load_status(), self.guide)
         self.player = Player(on_finished=self.finished_playing)
         self.set_channel(4)
         self.set_channel(3)  # FIXME: Must call a valid channel so pads link
