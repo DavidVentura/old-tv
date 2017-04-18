@@ -29,7 +29,6 @@ class TrackProgram():
             ret = os.path.join(self.ADS_PATH,
                                self.guide['ads'][s['curFileIndex']])
         else:
-            self.program = self.program % len(self.guide['channels'][self.channel])
             if 'lastChapter' not in s:
                 curfidx = 0
             else:
@@ -111,9 +110,12 @@ class TrackProgram():
         # Just finished an ad. Go to the next program
         if cs['curType'] == 'ad':
             self.set_current_status('curType', 'program')
-            pprint(cs['lastChapter'])
-            pprint(cs['lastChapter'][cs['lastProgramIndex']])
-            idx = cs['lastChapter'][cs['lastProgramIndex']] + 1
+            if 'lastChapter' in cs:
+                pprint(cs['lastChapter'])
+                pprint(cs['lastChapter'][cs['lastProgramIndex']])
+                idx = cs['lastChapter'][cs['lastProgramIndex']] + 1
+                self.program = (self.program + 1) % \
+                               len(self.guide['channels'][self.channel])
 
         else:  # Just finished a chapter. Go to an ad
             self.set_current_status('lastProgramIndex', self.program)
@@ -174,6 +176,7 @@ class TrackProgram():
 
     def __init__(self):
         self.guide = ci.index()
+        # FIXME: Sorts... badly
         self.valid_channels = self.guide['channels'].keys()
 
         self.status = self.load_status()
