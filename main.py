@@ -114,6 +114,7 @@ class TrackProgram():
                 pprint(cs['lastChapter'])
                 pprint(cs['lastChapter'][cs['lastProgramIndex']])
                 idx = cs['lastChapter'][cs['lastProgramIndex']] + 1
+                idx = idx % len(self.guide['channels'][self.channel][self.program])
                 self.program = (self.program + 1) % \
                                len(self.guide['channels'][self.channel])
 
