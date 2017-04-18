@@ -97,7 +97,8 @@ class Player:
             print("Duration", self.DURATION)
             print('scheduling next track and dropping EOS-Event')
             # if pad.get_name() == "src_1" or pad.get_name() == "src_0":
-            if self.DURATION <= self.get_cur_time() + 5:
+            if self.DURATION <= self.get_cur_time() + 5 and \
+               self.DURATION > 0:
                 if self.on_finished is not None:
                     self.on_finished()
 
@@ -117,7 +118,7 @@ class Player:
         padstr = padcaps.get_structure(0)
         padname = padstr.get_name()
 
-        print("Padname:", padname)
+        # print("Padname:", padname)
         if "audio" in padname:
             pad.link(self.iapad)
         elif "video" in padname:
@@ -130,7 +131,7 @@ class Player:
 
         snowpad = self.input_a.get_static_pad('sink_%d' % 1)
         self.input_a.set_property('active-pad', snowpad)
-        GObject.timeout_add(120, self.seek, self.LAST_CHAPTER_TIME)
+        GObject.timeout_add(150, self.seek, self.LAST_CHAPTER_TIME)
         GObject.timeout_add(300, self.update_duration)
 
     def get_cur_time(self):
@@ -153,22 +154,28 @@ class Player:
         self.pipeline.set_state(Gst.State.PLAYING)
         self.mainloop.run()
 
-    def change_uri(self, start_time=0, duration=0):
-        if self.CHANGING_URI:
-            print("Can't nest change_uri calls")
-            return
-        self.CHANGING_URI = True
+    def _change_uri(self, start_time, duration):
+        print('change uri:', start_time, duration)
         self.LAST_CHAPTER_TIME = start_time
         self.DURATION = duration
         self.pipeline.set_state(Gst.State.READY)
         self.filesrc.set_property("uri", self.NEXT_FILE)
         self.pipeline.set_state(Gst.State.PLAYING)
+        print('Calling channel now. LCT:', self.LAST_CHAPTER_TIME)
         self.channel()
         self.CHANGING_URI = False
+        return False  # Avoid calling repeatedly
+
+    def change_uri(self, start_time=0, duration=0):
+        if self.CHANGING_URI:
+            print("Can't nest change_uri calls")
+            return
+        self.CHANGING_URI = True
+        GObject.idle_add(self._change_uri, start_time, duration)
 
     def set_next_file(self, uri):
-        print("New      Next file:", uri)
         print("Current  Next file:", self.NEXT_FILE)
+        print("New      Next file:", uri)
         self.NEXT_FILE = uri
 
     def update_duration(self):
