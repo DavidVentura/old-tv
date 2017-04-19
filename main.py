@@ -68,7 +68,7 @@ def load_status():
                 'curFileDuration': 40,
                 'lastProgramIndex': 0,
                },
-            7: {}
+            8: {}
             }
 
 
