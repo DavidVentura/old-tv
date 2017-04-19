@@ -24,8 +24,10 @@ class Player:
         # print(message.parse())
         return
 
-    def __init__(self, on_finished):
+    def __init__(self, on_finished, on_duration):
         self.on_finished = on_finished
+        self.on_duration = on_duration
+
         self.mainloop = GObject.MainLoop()
         self.pipeline = Gst.Pipeline.new("mypipeline")
         self.pipeline.bus.add_signal_watch()
@@ -182,6 +184,8 @@ class Player:
         _, d = self.filesrc.query_duration(Gst.Format.TIME)
         self.DURATION = d / 1000000000
         print("Duration:", self.DURATION)
+        if self.on_duration is not None:
+            self.on_duration(self.DURATION)
         return False  # To get the timeout interval to stop
 
     def seek(self, seek_time_secs):

@@ -28,6 +28,7 @@ def sanitize_status(s, guide):
             status[channel]['curFileIndex'] = status[channel]['curFileIndex']\
                 % len(ads)
         else:
+            print(channel, status[channel])
             status[channel]['curProgram'] = status[channel]['curProgram']\
                 % len(channels[channel])
             status[channel]['curFileIndex'] = status[channel]['curFileIndex']\
@@ -156,6 +157,9 @@ class TrackProgram():
             print("Setting channel %d.%s to %s" % (self.channel, k, v))
             self.status[self.channel][k] = v
 
+    def update_duration(self, duration):
+        self.set_current_status('curFileDuration', duration)
+
     def finished_playing(self):
         idx = 0
         cs = self.get_current_status()
@@ -205,7 +209,11 @@ class TrackProgram():
         cs = self.get_current_status()
         self.program = cs['curProgram']
         self.player.set_next_file(self.get_cur_file())
-        self.player.change_uri(start_time=cs['curFileTime'],
+        if 'curFileDuration' not in cs or cs['curFileTime'] == 0:
+            print('curFileDuration' not in cs)
+            self.player.change_uri()
+        else:
+            self.player.change_uri(start_time=cs['curFileTime'],
                                duration=cs['curFileDuration'])
 
     def __init__(self):
@@ -214,7 +222,7 @@ class TrackProgram():
         self.valid_channels = self.guide['channels'].keys()
 
         self.status = sanitize_status(load_status(), self.guide)
-        self.player = Player(on_finished=self.finished_playing)
+        self.player = Player(on_finished=self.finished_playing, on_duration=self.update_duration)
         self.set_channel(4)
         self.set_channel(3)  # FIXME: Must call a valid channel so pads link
 
