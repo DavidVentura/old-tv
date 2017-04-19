@@ -37,6 +37,18 @@ class Player:
         self.filesrc.connect("pad-added", self.decode_src_created)
         self.pipeline.add(self.filesrc)
 
+        self.vconv = Gst.ElementFactory.make("videoconvert", None)
+        self.pipeline.add(self.vconv)
+
+        vscale = Gst.ElementFactory.make("videoscale", None)
+        self.pipeline.add(vscale)
+
+        #vcaps = Gst.Caps.from_string("video/x-raw,width=1280,height=1024")
+        vcaps = Gst.Caps.from_string("video/x-raw,width=656,height=416")
+        vfilter = Gst.ElementFactory.make("capsfilter", "vfilter")
+        vfilter.set_property("caps", vcaps)
+        self.pipeline.add(vfilter)
+
         self.input_v = Gst.ElementFactory.make("input-selector", "isv")
         self.pipeline.add(self.input_v)
 
@@ -50,6 +62,11 @@ class Player:
         # blankvideo.set_property("is-live", True)
         self.pipeline.add(blankvideo)
 
+        vfilter2 = Gst.ElementFactory.make("capsfilter", "vfilter2")
+        vfilter2.set_property("caps", vcaps)
+        self.pipeline.add(vfilter2)
+        blankvideo.link(vfilter2)
+
         self.toverlay = Gst.ElementFactory.make("textoverlay", "toverlay")
         self.toverlay.set_property("text", "Channel")
         self.toverlay.set_property("halignment", "right")
@@ -57,8 +74,8 @@ class Player:
         self.toverlay.set_property("font-desc", "Sans 32")
         # self.toverlay.set_property("shaded-background", True)
         self.pipeline.add(self.toverlay)
-        blankvideo.link(self.toverlay)
 
+        vfilter2.link(self.toverlay)
 
         blankaudio = Gst.ElementFactory.make("audiotestsrc", "noise")
         blankaudio.set_property("wave", "white-noise")
@@ -84,8 +101,6 @@ class Player:
         tpl_a = self.input_a.get_pad_template("sink_%u")
         self.iapad = self.input_a.request_pad(tpl_a, "sink_%u", None)
 
-        self.vscaler = Gst.ElementFactory.make("videoscale", "vscale")
-        self.pipeline.add(self.vscaler)
 
         # vcaps = Gst.Caps.from_string("video/x-raw,width=576,height=432")
         # vcaps = Gst.Caps.from_string("video/x-raw,width=640,height=480")
