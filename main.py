@@ -21,6 +21,9 @@ def sanitize_status(s, guide):
         if 'curFileTime' not in status[channel]:
             status[channel]['curFileTime'] = 0
 
+        if 'curProgram' not in status[channel]:
+            status[channel]['curProgram'] = 0
+
         if status[channel]['curType'] == 'ad':
             status[channel]['curFileIndex'] = status[channel]['curFileIndex']\
                 % len(ads)
@@ -64,6 +67,7 @@ def load_status():
                 'curFileDuration': 40,
                 'lastProgramIndex': 0,
                },
+            7: {}
             }
 
 
@@ -206,7 +210,7 @@ class TrackProgram():
 
     def __init__(self):
         self.guide = ci.index()
-        # FIXME: Sorts... badly
+        # FIXME: Sorts... poorly
         self.valid_channels = self.guide['channels'].keys()
 
         self.status = sanitize_status(load_status(), self.guide)
