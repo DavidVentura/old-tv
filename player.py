@@ -50,6 +50,16 @@ class Player:
         # blankvideo.set_property("is-live", True)
         self.pipeline.add(blankvideo)
 
+        self.toverlay = Gst.ElementFactory.make("textoverlay", "toverlay")
+        self.toverlay.set_property("text", "Channel")
+        self.toverlay.set_property("halignment", "right")
+        self.toverlay.set_property("valignment", "top")
+        self.toverlay.set_property("font-desc", "Sans 32")
+        # self.toverlay.set_property("shaded-background", True)
+        self.pipeline.add(self.toverlay)
+        blankvideo.link(self.toverlay)
+
+
         blankaudio = Gst.ElementFactory.make("audiotestsrc", "noise")
         blankaudio.set_property("wave", "white-noise")
         blankaudio.set_property("volume", 0.02)
@@ -64,7 +74,8 @@ class Player:
 
         self.input_a.link(asink)
         #vfilter.link(vsink)
-        blankvideo.link(self.input_v)
+        #blankvideo.link(self.input_v)
+        self.toverlay.link(self.input_v)
         blankaudio.link(self.input_a)
 
         tpl_v = self.input_v.get_pad_template("sink_%u")
@@ -133,6 +144,7 @@ class Player:
 
         snowpad = self.input_a.get_static_pad('sink_%d' % 1)
         self.input_a.set_property('active-pad', snowpad)
+
         GObject.timeout_add(150, self.seek, self.LAST_CHAPTER_TIME)
         GObject.timeout_add(300, self.update_duration)
 
@@ -141,7 +153,8 @@ class Player:
         _, delta = self.pipeline.query_position(Gst.Format.TIME)
         return delta / 1000000000
 
-    def snow(self):
+    def snow(self, channel='?'):
+        self.toverlay.set_property('text', channel)
         self.LAST_CHAPTER_TIME = self.get_cur_time()
 
         print("Switching to snow. Current clock: ", self.get_cur_time())

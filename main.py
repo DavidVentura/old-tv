@@ -203,7 +203,7 @@ class TrackProgram():
         self.channel = min(max(channel, 1), 12)
         print("New channel:", self.channel)
         if self.channel not in self.valid_channels:
-            self.player.snow()
+            self.player.snow(self.channel)
             return
 
         cs = self.get_current_status()
