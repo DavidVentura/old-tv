@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import os
 
-BASEPATH = "/home/david/git/old-tv/channels/"
-ADS_PATH = "/home/david/git/old-tv/ads/"
+cwd = os.path.dirname(os.path.realpath(__file__))
+BASEPATH = os.path.join(cwd, "channels/")
+ADS_PATH = os.path.join(cwd, "ads/")
 
 
 def get_directories(path):

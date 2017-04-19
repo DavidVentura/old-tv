@@ -73,8 +73,8 @@ def load_status():
 
 
 class TrackProgram():
-    BASEPATH = "/home/david/git/old-tv/channels/"
-    ADS_PATH = "/home/david/git/old-tv/ads/"
+    BASEPATH = ci.BASEPATH
+    ADS_PATH = ci.ADS_PATH
     guide = {}
     channel = 3
     program = 0
