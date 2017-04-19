@@ -21,7 +21,7 @@ export LDFLAGS="-L/opt/vc/lib"
 export CPPFLAGS="-I/opt/vc/include -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux -I/opt/vc/include/IL"
 export LIBS="-L/opt/vc/lib"
 
-apt install -y autoconf autopoint libtool bison flex libgstreamer1.0-dev yasm liborc-0.4-dev librtmp-dev gnutls-bin libx264-dev eatmydata
+apt install -y autoconf autopoint libtool bison flex libgstreamer1.0-dev yasm liborc-0.4-dev librtmp-dev gnutls-bin libx264-dev eatmydata libpango1.0-0 libpango1.0-dev
 
 emd='/usr/bin/eatmydata'
 v=1.11.1
