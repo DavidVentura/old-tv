@@ -161,49 +161,48 @@ class TrackProgram():
         self.set_current_status('curFileDuration', duration)
 
     def finished_playing(self):
-        idx = 0
-        cs = self.get_current_status()
+        if self.channel in self.valid_channels:
+            idx = 0
+            cs = self.get_current_status()
+            # Just finished an ad. Go to the next program
+            if cs['curType'] == 'ad':
+                self.set_current_status('curType', 'program')
+                if 'lastChapter' in cs:
+                    next_program = (cs['lastProgramIndex'] + 1) %\
+                        len(self.guide['channels'][self.channel])
 
-        # Just finished an ad. Go to the next program
-        if cs['curType'] == 'ad':
-            self.set_current_status('curType', 'program')
-            if 'lastChapter' in cs:
-                next_program = (cs['lastProgramIndex'] + 1) %\
-                    len(self.guide['channels'][self.channel])
+                    idx = cs['lastChapter'][next_program] + 1 % \
+                        len(self.guide['channels'][self.channel][self.program])
+                    # Taking index from lastProgramIndex..
+                    # should take from the next program
 
-                idx = cs['lastChapter'][next_program] + 1 % \
-                    len(self.guide['channels'][self.channel][self.program])
-                # Taking index from lastProgramIndex..
-                # should take from the next program
+                    self.program = (self.program + 1) % \
+                        len(self.guide['channels'][self.channel])
+                    self.set_current_status('curProgram', self.program)
 
-                self.program = (self.program + 1) % \
-                    len(self.guide['channels'][self.channel])
-                self.set_current_status('curProgram', self.program)
+            else:  # Just finished a chapter. Go to an ad
+                self.set_current_status('lastProgramIndex', self.program)
+                self.set_current_status('lastChapter',
+                                        {self.program: cs['curFileIndex']})
 
-        else:  # Just finished a chapter. Go to an ad
-            self.set_current_status('lastProgramIndex', self.program)
-            self.set_current_status('lastChapter',
-                                    {self.program: cs['curFileIndex']})
+                self.set_current_status('curType', 'ad')
+                idx = random.randint(0, len(self.guide['ads']) - 1)
 
-            self.set_current_status('curType', 'ad')
-            idx = random.randint(0, len(self.guide['ads']) - 1)
-
-        self.set_current_status('curFileIndex', idx)
-        # curFileIndex is used for get_next_file()
-        new_file = self.get_next_file()
-        self.player.set_next_file(new_file)
+            self.set_current_status('curFileIndex', idx)
+            # curFileIndex is used for get_next_file()
+            new_file = self.get_next_file()
+            self.player.set_next_file(new_file)
 
         self.set_current_status('curFileTime', 0)
         # self.set_current_status('curFileDuration', 10) # FIXME
         self.player.change_uri()
-
 
     def set_channel(self, channel):
         self.set_current_status('curFileTime', self.player.get_cur_time())
         self.channel = min(max(channel, 1), 12)
         print("New channel:", self.channel)
         if self.channel not in self.valid_channels:
-            self.player.snow(self.channel)
+            self.player.snow()
             return
 
         cs = self.get_current_status()
@@ -214,7 +213,7 @@ class TrackProgram():
             self.player.change_uri()
         else:
             self.player.change_uri(start_time=cs['curFileTime'],
-                               duration=cs['curFileDuration'])
+                                   duration=cs['curFileDuration'])
 
     def __init__(self):
         self.guide = ci.index()
@@ -223,7 +222,7 @@ class TrackProgram():
 
         self.status = sanitize_status(load_status(), self.guide)
         self.player = Player(on_finished=self.finished_playing, on_duration=self.update_duration)
-        self.set_channel(3)  # FIXME: Must call a valid channel so pads link
+        self.set_channel(4)  # FIXME: Must call a valid channel so pads link
 
         t1 = threading.Thread(target=self.control)
         t1.start()

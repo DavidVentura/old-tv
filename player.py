@@ -43,14 +43,6 @@ class Player:
         vscale = Gst.ElementFactory.make("videoscale", None)
         self.pipeline.add(vscale)
 
-        self.toverlay = Gst.ElementFactory.make("textoverlay", "toverlay")
-        self.toverlay.set_property("text", "Channel")
-        self.toverlay.set_property("halignment", "right")
-        self.toverlay.set_property("valignment", "top")
-        self.toverlay.set_property("font-desc", "Sans 32")
-        # self.toverlay.set_property("shaded-background", True)
-        self.pipeline.add(self.toverlay)
-
         # vcaps = Gst.Caps.from_string("video/x-raw,width=1280,height=1024")
         vcaps = Gst.Caps.from_string("video/x-raw,width=656,height=416")
         vfilter = Gst.ElementFactory.make("capsfilter", "vfilter")
@@ -124,8 +116,7 @@ class Player:
         _, delta = self.pipeline.query_position(Gst.Format.TIME)
         return delta / 1000000000
 
-    def snow(self, channel='?'):
-        self.toverlay.set_property('text', channel)
+    def snow(self):
         self.LAST_CHAPTER_TIME = self.get_cur_time()
 
         print("Switching to snow. Current clock: ", self.get_cur_time())
