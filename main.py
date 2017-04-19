@@ -223,7 +223,6 @@ class TrackProgram():
 
         self.status = sanitize_status(load_status(), self.guide)
         self.player = Player(on_finished=self.finished_playing, on_duration=self.update_duration)
-        self.set_channel(4)
         self.set_channel(3)  # FIXME: Must call a valid channel so pads link
 
         t1 = threading.Thread(target=self.control)

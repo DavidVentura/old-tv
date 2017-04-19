@@ -43,30 +43,6 @@ class Player:
         vscale = Gst.ElementFactory.make("videoscale", None)
         self.pipeline.add(vscale)
 
-        #vcaps = Gst.Caps.from_string("video/x-raw,width=1280,height=1024")
-        vcaps = Gst.Caps.from_string("video/x-raw,width=656,height=416")
-        vfilter = Gst.ElementFactory.make("capsfilter", "vfilter")
-        vfilter.set_property("caps", vcaps)
-        self.pipeline.add(vfilter)
-
-        self.input_v = Gst.ElementFactory.make("input-selector", "isv")
-        self.pipeline.add(self.input_v)
-
-        vsink = Gst.ElementFactory.make("autovideosink", "vsink")
-        self.pipeline.add(vsink)
-
-        self.input_v.link(vsink)
-
-        blankvideo = Gst.ElementFactory.make("videotestsrc", "snow")
-        blankvideo.set_property("pattern", "snow")
-        # blankvideo.set_property("is-live", True)
-        self.pipeline.add(blankvideo)
-
-        vfilter2 = Gst.ElementFactory.make("capsfilter", "vfilter2")
-        vfilter2.set_property("caps", vcaps)
-        self.pipeline.add(vfilter2)
-        blankvideo.link(vfilter2)
-
         self.toverlay = Gst.ElementFactory.make("textoverlay", "toverlay")
         self.toverlay.set_property("text", "Channel")
         self.toverlay.set_property("halignment", "right")
@@ -75,32 +51,17 @@ class Player:
         # self.toverlay.set_property("shaded-background", True)
         self.pipeline.add(self.toverlay)
 
-        vfilter2.link(self.toverlay)
+        # vcaps = Gst.Caps.from_string("video/x-raw,width=1280,height=1024")
+        vcaps = Gst.Caps.from_string("video/x-raw,width=656,height=416")
+        vfilter = Gst.ElementFactory.make("capsfilter", "vfilter")
+        vfilter.set_property("caps", vcaps)
+        self.pipeline.add(vfilter)
 
-        blankaudio = Gst.ElementFactory.make("audiotestsrc", "noise")
-        blankaudio.set_property("wave", "white-noise")
-        blankaudio.set_property("volume", 0.02)
-        # blankaudio.set_property("is-live", True)
-        self.pipeline.add(blankaudio)
+        self.vsink = Gst.ElementFactory.make("autovideosink", "vsink")
+        self.pipeline.add(self.vsink)
 
-        self.input_a = Gst.ElementFactory.make("input-selector", "isa")
-        self.pipeline.add(self.input_a)
-
-        asink = Gst.ElementFactory.make("autoaudiosink", "asink")
-        self.pipeline.add(asink)
-
-        self.input_a.link(asink)
-        #vfilter.link(vsink)
-        #blankvideo.link(self.input_v)
-        self.toverlay.link(self.input_v)
-        blankaudio.link(self.input_a)
-
-        tpl_v = self.input_v.get_pad_template("sink_%u")
-        self.ivpad = self.input_v.request_pad(tpl_v, "sink_%u", None)
-
-        tpl_a = self.input_a.get_pad_template("sink_%u")
-        self.iapad = self.input_a.request_pad(tpl_a, "sink_%u", None)
-
+        self.asink = Gst.ElementFactory.make("autoaudiosink", "asink")
+        self.pipeline.add(self.asink)
 
         # vcaps = Gst.Caps.from_string("video/x-raw,width=576,height=432")
         # vcaps = Gst.Caps.from_string("video/x-raw,width=640,height=480")
@@ -148,19 +109,14 @@ class Player:
 
         # print("Padname:", padname)
         if "audio" in padname:
-            pad.link(self.iapad)
+            pad.link(self.asink.get_static_pad("sink"))
         elif "video" in padname:
-            pad.link(self.ivpad)
+            pad.link(self.vsink.get_static_pad("sink"))
 
     def channel(self):
         print("Switching to Channel. Current clock: ", self.get_cur_time())
-        snowpad = self.input_v.get_static_pad('sink_%d' % 1)
-        self.input_v.set_property('active-pad', snowpad)
 
-        snowpad = self.input_a.get_static_pad('sink_%d' % 1)
-        self.input_a.set_property('active-pad', snowpad)
-
-        GObject.timeout_add(150, self.seek, self.LAST_CHAPTER_TIME)
+        GObject.timeout_add(100, self.seek, self.LAST_CHAPTER_TIME)
         GObject.timeout_add(300, self.update_duration)
 
     def get_cur_time(self):
@@ -173,11 +129,8 @@ class Player:
         self.LAST_CHAPTER_TIME = self.get_cur_time()
 
         print("Switching to snow. Current clock: ", self.get_cur_time())
-        snowpad = self.input_v.get_static_pad('sink_%d' % 0)
-        self.input_v.set_property('active-pad', snowpad)
-
-        snowpad = self.input_a.get_static_pad('sink_%d' % 0)
-        self.input_a.set_property('active-pad', snowpad)
+        self.NEXT_FILE = 'file:///home/david/git/old-tv/noise/noise.mp4'
+        self.change_uri()
 
     # running the shit
     def run(self):
