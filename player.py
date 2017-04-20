@@ -19,9 +19,7 @@ class Player:
 
 
         t = message.type
-        if t == Gst.MessageType.STATE_CHANGED:
-            return
-        elif t == Gst.MessageType.EOS:
+        if t == Gst.MessageType.EOS:
             print("We got EOS on the pipeline.")
             sys.exit(1)
         elif t == Gst.MessageType.ERROR:
@@ -53,6 +51,10 @@ class Player:
                 print("Duration is 0!")
                 GObject.idle_add(self.update_duration)
 
+        elif t == Gst.MessageType.STREAM_STATUS:
+            return
+            print("STATUS:")
+            print(message.parse_stream_status())
         else:
             print("Unexpected message!!", t)
         # print(message.type)
@@ -192,6 +194,9 @@ class Player:
 
     def seek(self, seek_time_secs):
         print("Asked to seek to: ", seek_time_secs)
+        if abs(seek_time_secs - self.get_cur_time()) < 1:
+            print("Not seeking < 1s")
+            return
         seek_time_secs = min(seek_time_secs, max(self.DURATION - 1, 0))
         print("Seeking to", seek_time_secs)
         self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH,
