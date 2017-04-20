@@ -12,7 +12,7 @@ class Player:
     LAST_CHAPTER_TIME = 0
     DURATION = 0
     CHANGING_URI = False
-
+    MUST_SEEK = False
     def msg(self, bus, message):
         if not message:
             return
@@ -31,10 +31,18 @@ class Player:
             # we are only interested in STATE_CHANGED messages from
             # the pipeline
             if message.src == self.pipeline:
+                # IF NEW_STATE == PAUSED => SEEK
                 old_state, new_state, pending_state = message.parse_state_changed()
-                print("Pipeline state changed from {0:s} to {1:s}".format(
-                    Gst.Element.state_get_name(old_state),
-                    Gst.Element.state_get_name(new_state)))
+                # print("Pipeline state changed from {0:s} to {1:s}".format(
+                #     Gst.Element.state_get_name(old_state),
+                #     Gst.Element.state_get_name(new_state)))
+                if self.MUST_SEEK and new_state == Gst.State.PAUSED:
+                    print("The stream is paused. I Must seek")
+                    self.seek(self.LAST_CHAPTER_TIME)
+                    self.MUST_SEEK = False
+            else:
+                #print("I don't care")
+                pass
         elif t == Gst.MessageType.TAG:
             return
             tag = message.parse_tag()
@@ -167,8 +175,9 @@ class Player:
         self.filesrc.set_property("uri", self.NEXT_FILE)
         self.pipeline.set_state(Gst.State.PLAYING)
         print('Calling channel now. LCT:', self.LAST_CHAPTER_TIME)
-        GObject.timeout_add(200, self.seek, self.LAST_CHAPTER_TIME)
+        # GObject.timeout_add(300, self.seek, self.LAST_CHAPTER_TIME)
         # GObject.timeout_add(300, self.update_duration)
+        self.MUST_SEEK = True
         self.CHANGING_URI = False
         return False  # Avoid calling repeatedly
 
