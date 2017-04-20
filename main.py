@@ -4,6 +4,7 @@ import os
 import threading
 import random
 import channel_indexer as ci
+import gpio
 from pprint import pprint
 
 
@@ -54,7 +55,7 @@ def load_status():
                 'curFileDuration': 40,
                 'lastProgramIndex': 0,
                },
-            3: {
+            4: {
                 'curType': 'program',
                 'curProgram': 0,
                 'curFileTime': 10,
@@ -199,6 +200,7 @@ class TrackProgram():
         self.player.change_uri()
 
     def set_channel(self, channel):
+        print("Asked to set", channel)
         channel = min(max(channel, 1), 12)
         if self.channel == channel:
             print("Aborting, asked to switch to current channel")
@@ -232,11 +234,11 @@ class TrackProgram():
                              on_finished=self.finished_playing,
                              on_duration=self.update_duration)
 
-        self.set_channel(3)  # FIXME: Must call a valid channel so pads link
-
+        g = gpio.Control(self.set_channel)
         t1 = threading.Thread(target=self.control)
         t1.start()
         self.player.run()
+        g.stop()
         t1.join()
 
 
