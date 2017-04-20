@@ -88,19 +88,29 @@ class Player:
         self.pipeline.bus.add_signal_watch()
         self.pipeline.bus.connect("message", self.msg)
 
+        vconv = Gst.ElementFactory.make("videoconvert", None)
+        self.pipeline.add(vconv)
+
+        vscale = Gst.ElementFactory.make("videoscale", None)
+        self.pipeline.add(vscale)
+
         vsink = Gst.ElementFactory.make("autovideosink", None)
         self.pipeline.add(vsink)
 
         asink = Gst.ElementFactory.make("autoaudiosink", None)
         self.pipeline.add(asink)
 
+        #self.vsinkpad = vsink.get_static_pad("sink")
         self.vsinkpad = vsink.get_static_pad("sink")
         self.asinkpad = asink.get_static_pad("sink")
 
     def on_pad_event(self, pad, info):
         event = info.get_event()
-        # print('event %s on pad %s', event.type, pad)
-
+        if event.type == Gst.EventType.GAP or \
+           event.type == Gst.EventType.SEGMENT or \
+           event.type == Gst.EventType.TAG:
+            return Gst.PadProbeReturn.PASS
+        print('event %s on pad %s', event.type, pad)
         if event.type == Gst.EventType.EOS:
             print("Pad: %s, child of: %s" %
                   (pad.get_name(), pad.parent.get_name()))
@@ -108,10 +118,8 @@ class Player:
             print("Duration", self.DURATION)
             print('scheduling next track and dropping EOS-Event')
             # if pad.get_name() == "src_1" or pad.get_name() == "src_0":
-            if self.DURATION <= self.get_cur_time() + 5 and \
-               self.DURATION > 0:
-                if self.on_finished is not None:
-                    self.on_finished()
+            if self.DURATION <= self.get_cur_time() + 5 and self.DURATION > 0:
+                self.on_finished()
 
             return Gst.PadProbeReturn.DROP
 
@@ -174,8 +182,6 @@ class Player:
         self.filesrc.set_property("uri", self.NEXT_FILE)
         self.pipeline.set_state(Gst.State.PLAYING)
         print('Calling channel now. LCT:', self.LAST_CHAPTER_TIME)
-        # GObject.timeout_add(300, self.seek, self.LAST_CHAPTER_TIME)
-        # GObject.timeout_add(300, self.update_duration)
         self.MUST_SEEK = True
         self.CHANGING_URI = False
         return False  # Avoid calling repeatedly
