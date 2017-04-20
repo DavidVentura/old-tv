@@ -236,6 +236,7 @@ class TrackProgram():
 
         g = gpio.Control(self.set_channel)
         t1 = threading.Thread(target=self.control)
+        t1.daemon = True
         t1.start()
         self.player.run()
         g.stop()

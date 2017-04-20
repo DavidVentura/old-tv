@@ -27,6 +27,7 @@ class Control:
             GPIO.setup(gpio, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
         self.t1 = threading.Thread(target=self.control)
+        self.t1.daemon = True
         self.t1.start()
 
     def control(self):
