@@ -13,15 +13,17 @@ class Player:
     DURATION = 0
     CHANGING_URI = False
     MUST_SEEK = False
+
     def msg(self, bus, message):
         if not message:
             return
-
 
         t = message.type
         if t == Gst.MessageType.EOS:
             print("We got EOS on the pipeline.")
             sys.exit(1)
+        elif t == Gst.MessageType.QOS:
+            return
         elif t == Gst.MessageType.ERROR:
             err, dbg = message.parse_error()
             print("ERROR:", message.src.get_name(), " ", err.message)
@@ -33,16 +35,16 @@ class Player:
             if message.src == self.pipeline:
                 # IF NEW_STATE == PAUSED => SEEK
                 old_state, new_state, pending_state = message.parse_state_changed()
-                # print("Pipeline state changed from {0:s} to {1:s}".format(
-                #     Gst.Element.state_get_name(old_state),
-                #     Gst.Element.state_get_name(new_state)))
-                if self.MUST_SEEK and new_state == Gst.State.PAUSED:
+                print("Pipeline state changed from {0:s} to {1:s}".format(
+                    Gst.Element.state_get_name(old_state),
+                    Gst.Element.state_get_name(new_state)))
+                if self.MUST_SEEK and new_state == Gst.State.PAUSED and\
+                        old_state == Gst.State.READY:
                     print("The stream is paused. I Must seek")
-                    self.seek(self.LAST_CHAPTER_TIME)
-                    self.MUST_SEEK = False
+                    GObject.idle_add(self.seek, self.LAST_CHAPTER_TIME)
             else:
-                #print("I don't care")
-                pass
+                # print("I don't care")
+                return
         elif t == Gst.MessageType.TAG:
             return
             tag = message.parse_tag()
@@ -65,9 +67,6 @@ class Player:
             print(message.parse_stream_status())
         else:
             print("Unexpected message!!", t)
-        # print(message.type)
-        # print(message.parse())
-        return
 
     def __init__(self, blank_uri, on_finished, on_duration):
         print(blank_uri)
@@ -203,12 +202,13 @@ class Player:
 
     def seek(self, seek_time_secs):
         print("Asked to seek to: ", seek_time_secs)
-        if abs(seek_time_secs - self.get_cur_time()) < 1:
-            print("Not seeking < 1s")
+        if abs(seek_time_secs - self.get_cur_time()) < 0.5:
+            print("Not seeking < 0.5s")
             return
         seek_time_secs = min(seek_time_secs, max(self.DURATION - 1, 0))
         print("Seeking to", seek_time_secs)
         self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH,
                                   seek_time_secs * Gst.SECOND)
         #   | Gst.SeekFlags.KEY_UNIT,
+        self.MUST_SEEK = False
         return False  # To get the timeout interval to stop
