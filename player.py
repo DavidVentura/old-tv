@@ -105,12 +105,6 @@ class Player:
         elif "video" in padname:
             pad.link(self.vsink.get_static_pad("sink"))
 
-    def channel(self):
-        print("Switching to Channel. Current clock: ", self.get_cur_time())
-
-        GObject.timeout_add(100, self.seek, self.LAST_CHAPTER_TIME)
-        GObject.timeout_add(300, self.update_duration)
-
     def get_cur_time(self):
         # delta = (self.filesrc.get_clock().get_time() - self.INITIAL_TIME)
         _, delta = self.pipeline.query_position(Gst.Format.TIME)
@@ -136,11 +130,12 @@ class Player:
         self.filesrc.set_property("uri", self.NEXT_FILE)
         self.pipeline.set_state(Gst.State.PLAYING)
         print('Calling channel now. LCT:', self.LAST_CHAPTER_TIME)
-        self.channel()
+        GObject.timeout_add(200, self.seek, self.LAST_CHAPTER_TIME)
+        GObject.timeout_add(300, self.update_duration)
         self.CHANGING_URI = False
         return False  # Avoid calling repeatedly
 
-    def change_uri(self, start_time=0, duration=0):
+    def change_uri(self, start_time=0, duration=10):
         if self.CHANGING_URI:
             print("Can't nest change_uri calls")
             return

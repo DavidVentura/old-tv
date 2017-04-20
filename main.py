@@ -76,7 +76,7 @@ class TrackProgram():
     BASEPATH = ci.BASEPATH
     ADS_PATH = ci.ADS_PATH
     guide = {}
-    channel = 3
+    channel = 0
     program = 0
     status = {}
 
@@ -198,8 +198,13 @@ class TrackProgram():
         self.player.change_uri()
 
     def set_channel(self, channel):
+        channel = min(max(channel, 1), 12)
+        if self.channel == channel:
+            print("Aborting, asked to switch to current channel")
+            return
+
         self.set_current_status('curFileTime', self.player.get_cur_time())
-        self.channel = min(max(channel, 1), 12)
+        self.channel = channel
         print("New channel:", self.channel)
         if self.channel not in self.valid_channels:
             self.player.snow()
@@ -222,7 +227,7 @@ class TrackProgram():
 
         self.status = sanitize_status(load_status(), self.guide)
         self.player = Player(on_finished=self.finished_playing, on_duration=self.update_duration)
-        self.set_channel(4)  # FIXME: Must call a valid channel so pads link
+        self.set_channel(3)  # FIXME: Must call a valid channel so pads link
 
         t1 = threading.Thread(target=self.control)
         t1.start()
