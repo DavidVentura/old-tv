@@ -16,6 +16,8 @@ class Player:
     def msg(self, bus, message):
         if not message:
             return
+
+
         t = message.type
         if t == Gst.MessageType.STATE_CHANGED:
             return
@@ -35,8 +37,24 @@ class Player:
                 print("Pipeline state changed from {0:s} to {1:s}".format(
                     Gst.Element.state_get_name(old_state),
                     Gst.Element.state_get_name(new_state)))
+        elif t == Gst.MessageType.TAG:
+            return
+            tag = message.parse_tag()
+            count = tag.n_tags()
+            print(count)
+            for i in range(0, count):
+                print(tag.nth_tag_name(i))
+        elif t == Gst.MessageType.DURATION_CHANGED:
+            return
+            print("Duration changed!!")
+            GObject.idle_add(self.update_duration)
+        elif t == Gst.MessageType.STREAM_START:
+            if self.DURATION == 0:
+                print("Duration is 0!")
+                GObject.idle_add(self.update_duration)
+
         else:
-            print("Unexpected message!!")
+            print("Unexpected message!!", t)
         # print(message.type)
         # print(message.parse())
         return
@@ -99,6 +117,12 @@ class Player:
         if padcaps.is_empty() or padcaps.get_size() == 0:
             print("Padcaps empty!!")
             return
+        #clock = self.pipeline.get_clock()
+        #if clock:
+        #    runtime = clock.get_time() - self.pipeline.get_base_time()
+        #    print('setting pad offset to pipeline runtime: %sns' % runtime)
+        #    pad.set_offset(runtime)
+
         padstr = padcaps.get_structure(0)
         padname = padstr.get_name()
 
@@ -142,7 +166,7 @@ class Player:
         self.pipeline.set_state(Gst.State.PLAYING)
         print('Calling channel now. LCT:', self.LAST_CHAPTER_TIME)
         GObject.timeout_add(200, self.seek, self.LAST_CHAPTER_TIME)
-        GObject.timeout_add(300, self.update_duration)
+        # GObject.timeout_add(300, self.update_duration)
         self.CHANGING_URI = False
         return False  # Avoid calling repeatedly
 
