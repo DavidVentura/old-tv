@@ -14,58 +14,61 @@ class Player:
     CHANGING_URI = False
 
     def msg(self, bus, message):
+        if not message:
+            return
         t = message.type
         if t == Gst.MessageType.STATE_CHANGED:
             return
-        if t == Gst.MessageType.EOS:
+        elif t == Gst.MessageType.EOS:
             print("We got EOS on the pipeline.")
             sys.exit(1)
+        elif t == Gst.MessageType.ERROR:
+            err, dbg = message.parse_error()
+            print("ERROR:", message.src.get_name(), " ", err.message)
+            if dbg:
+                print("debugging info:", dbg)
+        elif t == Gst.MessageType.STATE_CHANGED:
+            # we are only interested in STATE_CHANGED messages from
+            # the pipeline
+            if message.src == self.pipeline:
+                old_state, new_state, pending_state = message.parse_state_changed()
+                print("Pipeline state changed from {0:s} to {1:s}".format(
+                    Gst.Element.state_get_name(old_state),
+                    Gst.Element.state_get_name(new_state)))
+        else:
+            print("Unexpected message!!")
         # print(message.type)
         # print(message.parse())
         return
 
-    def __init__(self, on_finished, on_duration):
+    def __init__(self, blank_uri, on_finished, on_duration):
+        print(blank_uri)
+        self.blank_uri = blank_uri
         self.on_finished = on_finished
         self.on_duration = on_duration
 
         self.mainloop = GObject.MainLoop()
+        # p = """videoconvert ! videoscale ! video/x-raw,width=656,height=416"""
+        # self.pipeline = Gst.parse_launch(p)
         self.pipeline = Gst.Pipeline.new("mypipeline")
-        self.pipeline.bus.add_signal_watch()
-        self.pipeline.bus.connect("message", self.msg)
 
-        self.filesrc = Gst.ElementFactory.make("uridecodebin", "filesrc")
+        self.filesrc = Gst.ElementFactory.make('uridecodebin', None)
+        # self.pipeline.get_by_name('udb')
+        self.filesrc.set_property('uri', blank_uri)
         self.filesrc.connect("pad-added", self.decode_src_created)
         self.pipeline.add(self.filesrc)
 
-        self.vconv = Gst.ElementFactory.make("videoconvert", None)
-        self.pipeline.add(self.vconv)
+        self.pipeline.bus.add_signal_watch()
+        self.pipeline.bus.connect("message", self.msg)
 
-        vscale = Gst.ElementFactory.make("videoscale", None)
-        self.pipeline.add(vscale)
+        vsink = Gst.ElementFactory.make("autovideosink", None)
+        self.pipeline.add(vsink)
 
-        # vcaps = Gst.Caps.from_string("video/x-raw,width=1280,height=1024")
-        vcaps = Gst.Caps.from_string("video/x-raw,width=656,height=416")
-        vfilter = Gst.ElementFactory.make("capsfilter", "vfilter")
-        vfilter.set_property("caps", vcaps)
-        self.pipeline.add(vfilter)
+        asink = Gst.ElementFactory.make("autoaudiosink", None)
+        self.pipeline.add(asink)
 
-        self.vsink = Gst.ElementFactory.make("autovideosink", "vsink")
-        self.pipeline.add(self.vsink)
-
-        self.asink = Gst.ElementFactory.make("autoaudiosink", "asink")
-        self.pipeline.add(self.asink)
-
-        # vcaps = Gst.Caps.from_string("video/x-raw,width=576,height=432")
-        # vcaps = Gst.Caps.from_string("video/x-raw,width=640,height=480")
-        # vfilter = Gst.ElementFactory.make("capsfilter", "vfilter")
-        # vfilter.set_property("caps", vcaps)
-        # self.pipeline.add(vfilter)
-
-        # self.input_v.link(vfilter)
-
-        # for c in self.pipeline.children:
-        #    print(c.get_name())
-        # self.change_uri(self.get_next_file())
+        self.vsinkpad = vsink.get_static_pad("sink")
+        self.asinkpad = asink.get_static_pad("sink")
 
     def on_pad_event(self, pad, info):
         event = info.get_event()
@@ -99,11 +102,19 @@ class Player:
         padstr = padcaps.get_structure(0)
         padname = padstr.get_name()
 
-        # print("Padname:", padname)
+        print("Padname:", padname)
         if "audio" in padname:
-            pad.link(self.asink.get_static_pad("sink"))
+            if self.asinkpad.is_linked():
+                #self.asinkpad.unlink(self.asinkpad.get_peer())
+                pass
+
+            pad.link(self.asinkpad)
         elif "video" in padname:
-            pad.link(self.vsink.get_static_pad("sink"))
+            if self.vsinkpad.is_linked():
+                #self.vsinkpad.unlink(self.vsinkpad.get_peer())
+                pass
+
+            pad.link(self.vsinkpad)
 
     def get_cur_time(self):
         # delta = (self.filesrc.get_clock().get_time() - self.INITIAL_TIME)
@@ -114,7 +125,7 @@ class Player:
         self.LAST_CHAPTER_TIME = self.get_cur_time()
 
         print("Switching to snow. Current clock: ", self.get_cur_time())
-        self.NEXT_FILE = 'file:///home/david/git/old-tv/noise/noise.mp4'
+        self.NEXT_FILE = self.blank_uri
         self.change_uri()
 
     # running the shit

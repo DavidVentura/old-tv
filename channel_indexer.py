@@ -4,6 +4,7 @@ import os
 cwd = os.path.dirname(os.path.realpath(__file__))
 BASEPATH = os.path.join(cwd, "channels/")
 ADS_PATH = os.path.join(cwd, "ads/")
+BLANK_PATH = os.path.join(cwd, 'noise/noise.mp4')
 
 
 def get_directories(path):

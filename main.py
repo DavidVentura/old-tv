@@ -75,6 +75,7 @@ def load_status():
 class TrackProgram():
     BASEPATH = ci.BASEPATH
     ADS_PATH = ci.ADS_PATH
+    BLANK_PATH = ci.BLANK_PATH
     guide = {}
     channel = 0
     program = 0
@@ -226,7 +227,11 @@ class TrackProgram():
         self.valid_channels = self.guide['channels'].keys()
 
         self.status = sanitize_status(load_status(), self.guide)
-        self.player = Player(on_finished=self.finished_playing, on_duration=self.update_duration)
+
+        self.player = Player(blank_uri="file://" + self.BLANK_PATH,
+                             on_finished=self.finished_playing,
+                             on_duration=self.update_duration)
+
         self.set_channel(3)  # FIXME: Must call a valid channel so pads link
 
         t1 = threading.Thread(target=self.control)
