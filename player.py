@@ -53,7 +53,6 @@ class Player:
             for i in range(0, count):
                 print(tag.nth_tag_name(i))
         elif t == Gst.MessageType.DURATION_CHANGED:
-            return
             print("Duration changed!!")
             GObject.idle_add(self.update_duration)
         elif t == Gst.MessageType.STREAM_START:
