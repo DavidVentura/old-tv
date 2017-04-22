@@ -13,15 +13,23 @@ class Player:
     DURATION = 0
     CHANGING_URI = False
     MUST_SEEK = False
+    CUR_STATE = None
+    BUSY = False
 
     def msg(self, bus, message):
         if not message:
             return
 
         t = message.type
+        if t != Gst.MessageType.STATE_CHANGED:
+            print(t)
+
         if t == Gst.MessageType.EOS:
             print("We got EOS on the pipeline.")
             sys.exit(1)
+        elif t == Gst.MessageType.ASYNC_DONE:
+            print("############# Async done, cur state:", self.CUR_STATE)
+            self.BUSY = False
         elif t == Gst.MessageType.QOS:
             return
         elif t == Gst.MessageType.ERROR:
@@ -35,6 +43,7 @@ class Player:
             if message.src == self.pipeline:
                 # IF NEW_STATE == PAUSED => SEEK
                 old_state, new_state, pending_state = message.parse_state_changed()
+                self.CUR_STATE = new_state
                 print("Pipeline state changed from {0:s} to {1:s}".format(
                     Gst.Element.state_get_name(old_state),
                     Gst.Element.state_get_name(new_state)))
@@ -53,7 +62,6 @@ class Player:
             for i in range(0, count):
                 print(tag.nth_tag_name(i))
         elif t == Gst.MessageType.DURATION_CHANGED:
-            print("Duration changed!!")
             GObject.idle_add(self.update_duration)
         elif t == Gst.MessageType.STREAM_START:
             if self.DURATION == 0:
@@ -65,7 +73,7 @@ class Player:
             print("STATUS:")
             print(message.parse_stream_status())
         else:
-            print("Unexpected message!!", t)
+            print("Unexpected message:", t)
 
     def __init__(self, blank_uri, on_finished, on_duration):
         print(blank_uri)
@@ -82,25 +90,63 @@ class Player:
         # self.pipeline.get_by_name('udb')
         self.filesrc.set_property('uri', blank_uri)
         self.filesrc.connect("pad-added", self.decode_src_created)
-        self.pipeline.add(self.filesrc)
+        # self.pipeline.add(self.filesrc)
 
         self.pipeline.bus.add_signal_watch()
         self.pipeline.bus.connect("message", self.msg)
 
-        vconv = Gst.ElementFactory.make("videoconvert", None)
-        self.pipeline.add(vconv)
+        #glupload = Gst.ElementFactory.make("glupload", None)
+        #glcs = Gst.ElementFactory.make("glcolorscale", None)
+        # glcs = Gst.ElementFactory.make("glcolorconvert", None)
+        #convert = Gst.ElementFactory.make("videoconvert", None)
+        #scale = Gst.ElementFactory.make("videoscale", None)
+        #rate = Gst.ElementFactory.make("videorate", None)
+        #capsfilter = Gst.ElementFactory.make("capsfilter", None)
+        # gldownload = Gst.ElementFactory.make("gldownload", None)
 
-        vscale = Gst.ElementFactory.make("videoscale", None)
-        self.pipeline.add(vscale)
+        #caps = Gst.Caps.from_string("video/x-raw(memory:GLMemory),width=800,height=600")
+        #caps = Gst.Caps.from_string("video/x-raw(memory:GLMemory), framerate=(fraction)25/1")
+        #capsfilter.set_property("caps", caps)
+        # caps = video/x-raw(memory:GLMemory), format=(string)RGBA, width=(int)640, height=(int)480,
+        # interlace-mode=(string)progressive, pixel-aspect-ratio=(fraction)1/1, colorimetry=(string)sRGB,
+        # framerate=(fraction)25/1
 
-        vsink = Gst.ElementFactory.make("autovideosink", None)
+        #vsink = Gst.ElementFactory.make("autovideosink", None)
+        vsink = Gst.ElementFactory.make("glimagesink", None)
+        vsink.set_property("qos", False)
+        #vsink.set_property("enable-last-sample", False)
+        #vsink.set_property("handle-events", False)
+        #vsink.set_property("render-delay", 100000)
+
+
+
+        self.pipeline.add(self.filesrc)
+        #self.pipeline.add(glupload)
+        #self.pipeline.add(glcs)
+        # self.pipeline.add(convert)
+        # self.pipeline.add(scale)
+        # self.pipeline.add(rate)
+        #self.pipeline.add(capsfilter)
+        #self.pipeline.add(gldownload)
         self.pipeline.add(vsink)
+
+        #glupload.link(glcs)
+        #glupload.link(rate)
+        #glcs.link(rate)
+        #glcs.link(capsfilter)
+        #convert.link(scale)
+        #scale.link(rate)
+        #rate.link(capsfilter)
+        #capsfilter.link(vsink)
+        #capsfilter.link(gldownload)
+        # gldownload.link(vsink)
 
         asink = Gst.ElementFactory.make("autoaudiosink", None)
         self.pipeline.add(asink)
 
-        #self.vsinkpad = vsink.get_static_pad("sink")
         self.vsinkpad = vsink.get_static_pad("sink")
+        #self.vsinkpad = glupload.get_static_pad("sink")
+        #self.vsinkpad = convert.get_static_pad("sink")
         self.asinkpad = asink.get_static_pad("sink")
 
     def on_pad_event(self, pad, info):
@@ -199,7 +245,10 @@ class Player:
 
     def update_duration(self):
         _, d = self.filesrc.query_duration(Gst.Format.TIME)
-        self.DURATION = d / 1000000000
+        val = d / 1000000000
+        if val == 0:
+            return
+        self.DURATION = val
         print("Duration:", self.DURATION)
         if self.on_duration is not None:
             self.on_duration(self.DURATION)
@@ -207,10 +256,12 @@ class Player:
 
     def seek(self, seek_time_secs):
         print("Asked to seek to: ", seek_time_secs)
+        seek_time_secs = min(seek_time_secs, max(self.DURATION - 1, 0))
         if abs(seek_time_secs - self.get_cur_time()) < 0.5:
             print("Not seeking < 0.5s")
             return
-        seek_time_secs = min(seek_time_secs, max(self.DURATION - 1, 0))
+
+        self.BUSY = True
         print("Seeking to", seek_time_secs)
         self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH,
                                   seek_time_secs * Gst.SECOND)

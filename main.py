@@ -156,6 +156,15 @@ class TrackProgram():
         return "file://" + os.path.join(self.ADS_PATH,
                                         self.guide['ads'][cfi])
 
+    def chaos(self):
+        last = 0
+        t = sorted([k for k in self.guide['channels'].keys()])
+        print(t)
+        while True:
+            time.sleep(1.5)
+            self.set_channel(t[last])
+            last = (last + 1) % len(t)
+
     def control(self):
         data = ""
         while True:
@@ -241,6 +250,9 @@ class TrackProgram():
         if self.channel == channel:
             print("Aborting, asked to switch to current channel")
             return
+        if self.player.BUSY:
+            print("Player is BUSY!!")
+            return
 
         self.set_current_status('curFileTime', self.player.get_cur_time())
         self.channel = channel
@@ -278,6 +290,9 @@ class TrackProgram():
         t1 = threading.Thread(target=self.control)
         t1.daemon = True
         t1.start()
+        t2 = threading.Thread(target=self.chaos)
+        t2.daemon = True
+        t2.start()
         self.set_channel(4)
         self.player.run()
         g.stop()
