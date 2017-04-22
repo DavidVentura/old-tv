@@ -12,7 +12,6 @@ class Player:
     LAST_CHAPTER_TIME = 0
     DURATION = 0
     CHANGING_URI = False
-    MUST_SEEK = False
     CUR_STATE = None
     BUSY = False
 
@@ -21,8 +20,9 @@ class Player:
             return
 
         t = message.type
-        if t != Gst.MessageType.STATE_CHANGED:
+        if t != Gst.MessageType.STATE_CHANGED and t != Gst.MessageType.TAG:
             print(t)
+            pass
 
         if t == Gst.MessageType.EOS:
             print("We got EOS on the pipeline.")
@@ -35,6 +35,7 @@ class Player:
         elif t == Gst.MessageType.ERROR:
             err, dbg = message.parse_error()
             print("ERROR:", message.src.get_name(), " ", err.message)
+            self.BUSY = False
             if dbg:
                 print("debugging info:", dbg)
         elif t == Gst.MessageType.STATE_CHANGED:
@@ -43,12 +44,22 @@ class Player:
             if message.src == self.pipeline:
                 # IF NEW_STATE == PAUSED => SEEK
                 old_state, new_state, pending_state = message.parse_state_changed()
-                self.CUR_STATE = new_state
                 print("Pipeline state changed from {0:s} to {1:s}".format(
                     Gst.Element.state_get_name(old_state),
                     Gst.Element.state_get_name(new_state)))
-                if self.MUST_SEEK and new_state == Gst.State.PAUSED and\
-                        old_state == Gst.State.READY:
+                self.CUR_STATE = new_state
+                # old_state != Gst.State.READY and
+                if old_state != Gst.State.NULL and new_state == Gst.State.READY:
+                    print("!!")
+                    self.filesrc.set_property("uri", self.NEXT_FILE)
+                    print("PAUSING")
+                    self.pipeline.set_state(Gst.State.PAUSED)
+                    print("PAUSED")
+                    self.CHANGING_URI = False
+                    print("URI = CHANGED")
+                    pass
+
+                if new_state == Gst.State.PAUSED and old_state == Gst.State.READY:
                     print("The stream is paused. I Must seek")
                     GObject.idle_add(self.seek, self.LAST_CHAPTER_TIME)
             else:
@@ -63,7 +74,11 @@ class Player:
                 print(tag.nth_tag_name(i))
         elif t == Gst.MessageType.DURATION_CHANGED:
             GObject.idle_add(self.update_duration)
+        elif t == Gst.MessageType.STREAM_STATUS:
+            #print("STATUS:", message.parse_stream_status())
+            pass
         elif t == Gst.MessageType.STREAM_START:
+            print("STARTED MESSAGE")
             if self.DURATION == 0:
                 print("Duration is 0!")
                 GObject.idle_add(self.update_duration)
@@ -73,7 +88,8 @@ class Player:
             print("STATUS:")
             print(message.parse_stream_status())
         else:
-            print("Unexpected message:", t)
+            #print("Unexpected message:", t)
+            pass
 
     def __init__(self, blank_uri, on_finished, on_duration):
         print(blank_uri)
@@ -151,11 +167,11 @@ class Player:
 
     def on_pad_event(self, pad, info):
         event = info.get_event()
-        if event.type == Gst.EventType.GAP or \
-           event.type == Gst.EventType.SEGMENT or \
+        #if event.type == Gst.EventType.GAP or \
+        if event.type == Gst.EventType.SEGMENT or \
            event.type == Gst.EventType.TAG:
             return Gst.PadProbeReturn.PASS
-        print('event %s on pad %s', event.type, pad)
+        # print('event %s on pad %s', event.type, pad)
         if event.type == Gst.EventType.EOS:
             print("Pad: %s, child of: %s" %
                   (pad.get_name(), pad.parent.get_name()))
@@ -223,12 +239,11 @@ class Player:
         print('change uri:', start_time, duration)
         self.LAST_CHAPTER_TIME = start_time
         self.DURATION = duration
+        print("READYING")
         self.pipeline.set_state(Gst.State.READY)
-        self.filesrc.set_property("uri", self.NEXT_FILE)
-        self.pipeline.set_state(Gst.State.PLAYING)
-        print('Calling channel now. LCT:', self.LAST_CHAPTER_TIME)
-        self.MUST_SEEK = True
-        self.CHANGING_URI = False
+        print("READIED")
+
+        #print('Calling channel now. LCT:', self.LAST_CHAPTER_TIME)
         return False  # Avoid calling repeatedly
 
     def change_uri(self, start_time=0, duration=10):
@@ -256,15 +271,25 @@ class Player:
 
     def seek(self, seek_time_secs):
         print("Asked to seek to: ", seek_time_secs)
+        if self.BUSY:
+            print("IM BUSY!!!!!!!")
+            return
         seek_time_secs = min(seek_time_secs, max(self.DURATION - 1, 0))
         if abs(seek_time_secs - self.get_cur_time()) < 0.5:
-            print("Not seeking < 0.5s")
-            return
+            print("########## Not seeking < 0.5s")
+            pass
 
-        self.BUSY = True
+        #self.BUSY = True
         print("Seeking to", seek_time_secs)
-        self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH,
+        res = self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH,
                                   seek_time_secs * Gst.SECOND)
+        #res = self.pipeline.seek(1, Gst.Format.TIME,
+        #        Gst.SeekFlags.FLUSH,
+        #        Gst.SeekType.SET,
+        #        seek_time_secs * Gst.SECOND,
+        #        Gst.SeekType.NONE,
+        #        -1)
+        print("Seeking result", res)
         #   | Gst.SeekFlags.KEY_UNIT,
-        self.MUST_SEEK = False
+        self.pipeline.set_state(Gst.State.PLAYING)
         return False  # To get the timeout interval to stop
