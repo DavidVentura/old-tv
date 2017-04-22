@@ -31,9 +31,7 @@ class Control:
         self.t1.start()
 
     def control(self):
-        print("starting to sleep")
         time.sleep(0.1)
-        print("slept")
         last = -2
         while self.running:
             value = -1
