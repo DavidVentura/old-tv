@@ -161,7 +161,7 @@ class TrackProgram():
         t = sorted([k for k in self.guide['channels'].keys()])
         print(t)
         while True:
-            time.sleep(1.5)
+            time.sleep(2.5)
             self.set_channel(t[last])
             last = (last + 1) % len(t)
 
@@ -293,7 +293,6 @@ class TrackProgram():
         t2 = threading.Thread(target=self.chaos)
         t2.daemon = True
         t2.start()
-        self.set_channel(4)
         self.player.run()
         g.stop()
         t1.join()
