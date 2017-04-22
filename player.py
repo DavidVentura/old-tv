@@ -22,7 +22,7 @@ class Player:
 
         t = message.type
         if t != Gst.MessageType.STATE_CHANGED and t != Gst.MessageType.TAG:
-            print(t)
+            # print(t)
             pass
 
         if t == Gst.MessageType.EOS:
@@ -160,7 +160,9 @@ class Player:
             print('scheduling next track and dropping EOS-Event')
             # if pad.get_name() == "src_1" or pad.get_name() == "src_0":
             if self.DURATION <= self.get_cur_time() + 5 and self.DURATION > 0:
-                self.on_finished()
+                idx = pad.parent.get_name()[len('decoder_'):]
+                print('Guessing idx: ', idx)
+                self.on_finished(int(idx))
 
             return Gst.PadProbeReturn.DROP
 

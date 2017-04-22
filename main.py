@@ -116,8 +116,8 @@ class TrackProgram():
     program = 0
     status = {}
 
-    def get_cur_file(self):
-        s = self.get_current_status()
+    def get_cur_file(self, channel):
+        s = self.get_current_status(channel)
         ret = ''
         if s['curType'] == 'ad':
             ret = os.path.join(self.ADS_PATH,
@@ -130,31 +130,31 @@ class TrackProgram():
                 # Setting -1 as having not played a single file
                 # Destroys this part.
 
+            # FIXME self.program
             ret = os.path.join(self.BASEPATH,
-                               str(self.channel),
+                               str(channel),
                                str(self.program),
-                               self.guide['channels'][self.channel][self.program][curfidx])
+                               self.guide['channels'][channel][self.program][curfidx])
 
         return "file://" + ret
 
-    def get_next_file(self):
-        if self.get_current_status()['curType'] == 'ad':
-            return self.get_random_ad()
+    def get_next_file(self, channel):
+        if self.get_current_status(channel)['curType'] == 'ad':
+            return self.get_ad(random.randint(0, 4))
         else:
-            return self.get_next_chapter()
+            return self.get_next_chapter(channel, 0)  # FIXME
 
-    def get_next_chapter(self):
-        files = self.guide['channels'][self.channel][self.program]
+    def get_next_chapter(self, channel, program):
+        files = self.guide['channels'][channel][program]
         ret = os.path.join(self.BASEPATH,
-                           str(self.channel),
-                           str(self.program),
-                           files[self.get_current_status()['curFileIndex']])
+                           str(channel),
+                           str(program),
+                           files[self.get_current_status(channel)['curFileIndex']])
         return "file://" + ret
 
-    def get_random_ad(self):
-        cfi = self.get_current_status()['curFileIndex']
+    def get_ad(self, idx):
         return "file://" + os.path.join(self.ADS_PATH,
-                                        self.guide['ads'][cfi])
+                                        self.guide['ads'][idx])
 
     def chaos(self):
         last = 0
@@ -185,9 +185,9 @@ class TrackProgram():
                 except Exception:
                     print("Invalid")
 
-    def get_current_status(self):
+    def get_current_status(self, channel):
         # TODO: Return valid data on incomplete input
-        return self.status[self.channel]
+        return self.status[channel]
 
     def set_current_status(self, k, v):
         if self.channel not in self.valid_channels:
@@ -208,10 +208,10 @@ class TrackProgram():
     def update_duration(self, duration):
         self.set_current_status('curFileDuration', duration)
 
-    def finished_playing(self):
+    def finished_playing(self, channel):
         if self.channel in self.valid_channels:
             idx = 0
-            cs = self.get_current_status()
+            cs = self.get_current_status(channel)
             # Just finished an ad. Go to the next program
             if cs['curType'] == 'ad':
                 self.set_current_status('curType', 'program')
@@ -238,8 +238,8 @@ class TrackProgram():
 
             self.set_current_status('curFileIndex', idx)
             # curFileIndex is used for get_next_file()
-            new_file = self.get_next_file()
-            self.player.set_next_file(new_file, self.valid_channels.index(self.channel))
+            new_file = self.get_next_file(channel)
+            self.player.set_next_file(new_file, self.valid_channels.index(channel))
 
         self.set_current_status('curFileTime', 0)
         # self.set_current_status('curFileDuration', 10) # FIXME
@@ -262,9 +262,9 @@ class TrackProgram():
             self.player.snow()
             return
 
-        cs = self.get_current_status()
+        cs = self.get_current_status(channel)
         self.program = cs['curProgram']
-        self.player.set_next_file(self.get_cur_file(), self.valid_channels.index(self.channel))
+        self.player.set_next_file(self.get_cur_file(channel), self.valid_channels.index(self.channel))
         if 'curFileDuration' not in cs or cs['curFileTime'] == 0:
             print('curFileDuration' not in cs)
             self.player.change_uri()
