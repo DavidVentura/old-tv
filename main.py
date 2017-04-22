@@ -284,7 +284,8 @@ class TrackProgram():
 
         self.player = Player(blank_uri="file://" + self.BLANK_PATH,
                              on_finished=self.finished_playing,
-                             on_duration=self.update_duration)
+                             on_duration=self.update_duration,
+                             channels=len(self.valid_channels))
 
         g = gpio.Control(self.set_channel)
         t1 = threading.Thread(target=self.control)

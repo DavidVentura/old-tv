@@ -1,5 +1,6 @@
 import gi
 import sys
+import platform
 gi.require_version('Gst', '1.0')
 from gi.repository import GObject, Gst
 
@@ -51,7 +52,8 @@ class Player:
                 # old_state != Gst.State.READY and
                 if old_state != Gst.State.NULL and new_state == Gst.State.READY:
                     print("!!")
-                    self.filesrc.set_property("uri", self.NEXT_FILE)
+                    # FIXME sources 0
+                    self.sources[0].set_property("uri", self.NEXT_FILE)
                     print("PAUSING")
                     self.pipeline.set_state(Gst.State.PAUSED)
                     print("PAUSED")
@@ -91,8 +93,7 @@ class Player:
             #print("Unexpected message:", t)
             pass
 
-    def __init__(self, blank_uri, on_finished, on_duration):
-        print(blank_uri)
+    def __init__(self, blank_uri, on_finished, on_duration, channels):
         self.blank_uri = blank_uri
         self.on_finished = on_finished
         self.on_duration = on_duration
@@ -102,68 +103,46 @@ class Player:
         # self.pipeline = Gst.parse_launch(p)
         self.pipeline = Gst.Pipeline.new("mypipeline")
 
-        self.filesrc = Gst.ElementFactory.make('uridecodebin', None)
-        # self.pipeline.get_by_name('udb')
-        self.filesrc.set_property('uri', blank_uri)
-        self.filesrc.connect("pad-added", self.decode_src_created)
-        # self.pipeline.add(self.filesrc)
+        self.sources = []
 
         self.pipeline.bus.add_signal_watch()
         self.pipeline.bus.connect("message", self.msg)
 
-        #glupload = Gst.ElementFactory.make("glupload", None)
-        #glcs = Gst.ElementFactory.make("glcolorscale", None)
-        # glcs = Gst.ElementFactory.make("glcolorconvert", None)
-        #convert = Gst.ElementFactory.make("videoconvert", None)
-        #scale = Gst.ElementFactory.make("videoscale", None)
-        #rate = Gst.ElementFactory.make("videorate", None)
-        #capsfilter = Gst.ElementFactory.make("capsfilter", None)
-        # gldownload = Gst.ElementFactory.make("gldownload", None)
+        for c in range(0, channels):
+            s = Gst.ElementFactory.make('uridecodebin', 'decoder_%d' % c)
+            s.set_property('uri', blank_uri)
+            s.connect("pad-added", self.curry_decode_src_created(c))
+            self.sources.append(s)
+            self.pipeline.add(s)
 
-        #caps = Gst.Caps.from_string("video/x-raw(memory:GLMemory),width=800,height=600")
-        #caps = Gst.Caps.from_string("video/x-raw(memory:GLMemory), framerate=(fraction)25/1")
-        #capsfilter.set_property("caps", caps)
-        # caps = video/x-raw(memory:GLMemory), format=(string)RGBA, width=(int)640, height=(int)480,
-        # interlace-mode=(string)progressive, pixel-aspect-ratio=(fraction)1/1, colorimetry=(string)sRGB,
-        # framerate=(fraction)25/1
+        self.input_v = Gst.ElementFactory.make('input-selector', 'isv')
+        self.pipeline.add(self.input_v)
 
-        #vsink = Gst.ElementFactory.make("autovideosink", None)
-        vsink = Gst.ElementFactory.make("glimagesink", None)
-        vsink.set_property("qos", False)
-        #vsink.set_property("enable-last-sample", False)
-        #vsink.set_property("handle-events", False)
-        #vsink.set_property("render-delay", 100000)
+        self.input_a = Gst.ElementFactory.make('input-selector', 'isa')
+        self.pipeline.add(self.input_a)
 
+        if platform.machine() == 'x86_64':
+            vsink = Gst.ElementFactory.make("autovideosink", None)
+        else:
+            vsink = Gst.ElementFactory.make("glimagesink", None)
+            vsink.set_property("qos", False)
 
-
-        self.pipeline.add(self.filesrc)
-        #self.pipeline.add(glupload)
-        #self.pipeline.add(glcs)
-        # self.pipeline.add(convert)
-        # self.pipeline.add(scale)
-        # self.pipeline.add(rate)
-        #self.pipeline.add(capsfilter)
-        #self.pipeline.add(gldownload)
         self.pipeline.add(vsink)
-
-        #glupload.link(glcs)
-        #glupload.link(rate)
-        #glcs.link(rate)
-        #glcs.link(capsfilter)
-        #convert.link(scale)
-        #scale.link(rate)
-        #rate.link(capsfilter)
-        #capsfilter.link(vsink)
-        #capsfilter.link(gldownload)
-        # gldownload.link(vsink)
 
         asink = Gst.ElementFactory.make("autoaudiosink", None)
         self.pipeline.add(asink)
 
-        self.vsinkpad = vsink.get_static_pad("sink")
-        #self.vsinkpad = glupload.get_static_pad("sink")
-        #self.vsinkpad = convert.get_static_pad("sink")
-        self.asinkpad = asink.get_static_pad("sink")
+        self.input_v.link(vsink)
+        self.input_a.link(asink)
+
+        tpl_v = self.input_v.get_pad_template("sink_%u")
+        tpl_a = self.input_a.get_pad_template("sink_%u")
+
+        self.vsinks = []
+        self.asinks = []
+        for c in range(0, channels):
+            self.vsinks.append(self.input_v.request_pad(tpl_v, "sink_%u", None))
+            self.asinks.append(self.input_a.request_pad(tpl_v, "sink_%u", None))
 
     def on_pad_event(self, pad, info):
         event = info.get_event()
@@ -186,37 +165,36 @@ class Player:
 
         return Gst.PadProbeReturn.PASS
 
-    def decode_src_created(self, element, pad):
-        pad.add_probe(
-             Gst.PadProbeType.EVENT_DOWNSTREAM | Gst.PadProbeType.BLOCK,
-             self.on_pad_event
-        )
-        padcaps = pad.query_caps()
-        if padcaps.is_empty() or padcaps.get_size() == 0:
-            print("Padcaps empty!!")
-            return
-        #clock = self.pipeline.get_clock()
-        #if clock:
-        #    runtime = clock.get_time() - self.pipeline.get_base_time()
-        #    print('setting pad offset to pipeline runtime: %sns' % runtime)
-        #    pad.set_offset(runtime)
+    def curry_decode_src_created(self, sink):
 
-        padstr = padcaps.get_structure(0)
-        padname = padstr.get_name()
+        def decode_src_created(element, pad):
+            pad.add_probe(
+                 Gst.PadProbeType.EVENT_DOWNSTREAM | Gst.PadProbeType.BLOCK,
+                 self.on_pad_event
+            )
+            padcaps = pad.query_caps()
+            if padcaps.is_empty() or padcaps.get_size() == 0:
+                print("Padcaps empty!!")
+                return
 
-        print("Padname:", padname)
-        if "audio" in padname:
-            if self.asinkpad.is_linked():
-                #self.asinkpad.unlink(self.asinkpad.get_peer())
-                pass
+            padstr = padcaps.get_structure(0)
+            padname = padstr.get_name()
 
-            pad.link(self.asinkpad)
-        elif "video" in padname:
-            if self.vsinkpad.is_linked():
-                #self.vsinkpad.unlink(self.vsinkpad.get_peer())
-                pass
+            print("Padname:", padname)
+            if "audio" in padname:
+                if self.asinks[sink].is_linked():
+                    # self.asinkpad.unlink(self.asinkpad.get_peer())
+                    pass
 
-            pad.link(self.vsinkpad)
+                pad.link(self.asinks[sink])
+            elif "video" in padname:
+                if self.vsinks[sink].is_linked():
+                    # self.vsinkpad.unlink(self.vsinkpad.get_peer())
+                    pass
+
+                pad.link(self.vsinks[sink])
+
+        return decode_src_created
 
     def get_cur_time(self):
         # delta = (self.filesrc.get_clock().get_time() - self.INITIAL_TIME)
@@ -259,7 +237,9 @@ class Player:
         self.NEXT_FILE = uri
 
     def update_duration(self):
-        _, d = self.filesrc.query_duration(Gst.Format.TIME)
+        # FIXME sources 0
+        # _, d = self.filesrc.query_duration(Gst.Format.TIME)
+        _, d = self.sources[0].query_duration(Gst.Format.TIME)
         val = d / 1000000000
         if val == 0:
             return
