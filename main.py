@@ -160,9 +160,10 @@ class TrackProgram():
         last = 0
         t = sorted([k for k in self.guide['channels'].keys()])
         print(t)
+        self.player.set_next_file('file://'+'/home/david/git/old-tv/channels/2/0/mtn-pp101.avi.mp4',0)
         while True:
-            time.sleep(2.5)
-            self.set_channel(t[last])
+            time.sleep(5)
+            self.player.change_channel(last)
             last = (last + 1) % len(t)
 
     def control(self):
@@ -238,7 +239,7 @@ class TrackProgram():
             self.set_current_status('curFileIndex', idx)
             # curFileIndex is used for get_next_file()
             new_file = self.get_next_file()
-            self.player.set_next_file(new_file)
+            self.player.set_next_file(new_file, self.valid_channels.index(self.channel))
 
         self.set_current_status('curFileTime', 0)
         # self.set_current_status('curFileDuration', 10) # FIXME
@@ -263,7 +264,7 @@ class TrackProgram():
 
         cs = self.get_current_status()
         self.program = cs['curProgram']
-        self.player.set_next_file(self.get_cur_file())
+        self.player.set_next_file(self.get_cur_file(), self.valid_channels.index(self.channel))
         if 'curFileDuration' not in cs or cs['curFileTime'] == 0:
             print('curFileDuration' not in cs)
             self.player.change_uri()
@@ -274,7 +275,7 @@ class TrackProgram():
     def __init__(self):
         self.guide = ci.index()
         # FIXME: Sorts... poorly
-        self.valid_channels = self.guide['channels'].keys()
+        self.valid_channels = sorted(list(self.guide['channels'].keys()))
 
         statusfile = ''
         statusfile = os.path.join(ci.cwd, "1492733314.json")

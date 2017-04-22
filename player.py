@@ -9,7 +9,7 @@ Gst.init(None)
 
 
 class Player:
-    NEXT_FILE = None
+    NEXT_FILE = []
     LAST_CHAPTER_TIME = 0
     DURATION = 0
     CHANGING_URI = False
@@ -53,13 +53,12 @@ class Player:
                 if old_state != Gst.State.NULL and new_state == Gst.State.READY:
                     print("!!")
                     # FIXME sources 0
-                    self.sources[0].set_property("uri", self.NEXT_FILE)
+                    self.sources[0].set_property("uri", self.NEXT_FILE[0])
                     print("PAUSING")
                     self.pipeline.set_state(Gst.State.PAUSED)
                     print("PAUSED")
                     self.CHANGING_URI = False
                     print("URI = CHANGED")
-                    pass
 
                 if new_state == Gst.State.PAUSED and old_state == Gst.State.READY:
                     print("The stream is paused. I Must seek")
@@ -109,6 +108,8 @@ class Player:
         self.pipeline.bus.connect("message", self.msg)
 
         for c in range(0, channels):
+            self.NEXT_FILE.append(blank_uri)
+
             s = Gst.ElementFactory.make('uridecodebin', 'decoder_%d' % c)
             s.set_property('uri', blank_uri)
             s.connect("pad-added", self.curry_decode_src_created(c))
@@ -142,7 +143,7 @@ class Player:
         self.asinks = []
         for c in range(0, channels):
             self.vsinks.append(self.input_v.request_pad(tpl_v, "sink_%u", None))
-            self.asinks.append(self.input_a.request_pad(tpl_v, "sink_%u", None))
+            self.asinks.append(self.input_a.request_pad(tpl_a, "sink_%u", None))
 
     def on_pad_event(self, pad, info):
         event = info.get_event()
@@ -205,8 +206,16 @@ class Player:
         self.LAST_CHAPTER_TIME = self.get_cur_time()
 
         print("Switching to snow. Current clock: ", self.get_cur_time())
-        self.NEXT_FILE = self.blank_uri
-        self.change_uri()
+        # self.NEXT_FILE = self.blank_uri
+        # FIXME
+        self.change_channel(1)
+
+    def change_channel(self, channel):
+        newpad = self.input_v.get_static_pad('sink_%d' % channel)
+        self.input_v.set_property('active-pad', newpad)
+
+        newpad = self.input_a.get_static_pad('sink_%d' % channel)
+        self.input_a.set_property('active-pad', newpad)
 
     # running the shit
     def run(self):
@@ -231,10 +240,10 @@ class Player:
         self.CHANGING_URI = True
         GObject.idle_add(self._change_uri, start_time, duration)
 
-    def set_next_file(self, uri):
-        print("Current  Next file:", self.NEXT_FILE)
+    def set_next_file(self, uri, channel):
+        print("Current  Next file:", self.NEXT_FILE[channel])
         print("New      Next file:", uri)
-        self.NEXT_FILE = uri
+        self.NEXT_FILE[channel] = uri
 
     def update_duration(self):
         # FIXME sources 0
