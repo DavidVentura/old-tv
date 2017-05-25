@@ -34,7 +34,7 @@ class Player:
 
         patterns = ["smpte", "snow", "black", "white"]
         for c in range(0, 4):
-            s = Gst.ElementFactory.make('videotestsrc', 'decoder_%d' % c)
+            s = Gst.ElementFactory.make('videotestsrc', 'video_%d' % c)
             s.set_property('pattern', patterns[c])
             s.set_property('is-live', True)
             self.pipeline.add(s)
@@ -43,7 +43,7 @@ class Player:
         self.pipeline.add(self.input_v)
 
         for c in range(0, 4):
-            self.pipeline.get_by_name("decoder_%d" % c).link(self.input_v)
+            self.pipeline.get_by_name("video_%d" % c).link(self.input_v)
 
         if platform.machine() == 'x86_64':
             vsink = Gst.ElementFactory.make("autovideosink", None)
