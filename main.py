@@ -62,7 +62,8 @@ def load_status(fname):
             data = json.loads(f.read())
             data = keys_to_int(data)
     except Exception as e:
-        print(e)
+        # print(e)
+        pass
 
     return data
 
@@ -103,7 +104,7 @@ class TrackProgram():
         last = 0
         t = sorted([k for k in self.guide.keys()])
         print(t)
-        self.player.set_next_file('file://'+'/home/david/git/old-tv/channels/2/0/mtn-pp101.avi.mp4',0)
+        # self.player.set_next_file('file://'+'/home/david/git/old-tv/channels/2/0/mtn-pp101.avi.mp4',0)
         while True:
             time.sleep(5)
             self.player.change_channel(last)
@@ -195,15 +196,17 @@ class TrackProgram():
 
     def __init__(self):
         self.guide = ci.create_playlist(ci.index())
-        self.guide = { 2: self.guide[2] }
+        self.guide = {2: self.guide[2]}
+        self.guide = {}
         self.valid_channels = sorted(list(self.guide.keys()))
 
-        statusfile = ''
         statusfile = os.path.join(ci.cwd, "1492733314.json")
         statusfile = newest_file(list_saves())
+        statusfile = ''
         loaded = load_status(statusfile)
         self.status = sanitize_status(loaded, self.guide)
 
+        pprint(self.status)
         self.player = Player(blank_uri="file://" + self.BLANK_PATH,
                              on_finished=self.finished_playing,
                              on_duration=self.update_duration,
@@ -215,7 +218,7 @@ class TrackProgram():
         t1.start()
         t2 = threading.Thread(target=self.chaos)
         t2.daemon = True
-        t2.start()
+        #t2.start()
         self.player.run()
         g.stop()
         t1.join()

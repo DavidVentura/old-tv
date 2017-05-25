@@ -39,34 +39,6 @@ class Player:
             self.BUSY = False
             if dbg:
                 print("debugging info:", dbg)
-        elif t == Gst.MessageType.STATE_CHANGED:
-            # we are only interested in STATE_CHANGED messages from
-            # the pipeline
-            if message.src == self.pipeline:
-                # IF NEW_STATE == PAUSED => SEEK
-                old_state, new_state, pending_state = message.parse_state_changed()
-                print("Pipeline state changed from {0:s} to {1:s}".format(
-                    Gst.Element.state_get_name(old_state),
-                    Gst.Element.state_get_name(new_state)))
-                self.CUR_STATE = new_state
-                # old_state != Gst.State.READY and
-                if old_state != Gst.State.NULL and new_state == Gst.State.READY:
-                    print("!!")
-                    # FIXME sources 0
-                    self.sources[0].set_property("uri", self.NEXT_FILE[0])
-                    print("PAUSING")
-                    self.pipeline.set_state(Gst.State.PAUSED)
-                    print("PAUSED")
-                    self.CHANGING_URI = False
-                    print("URI = CHANGED")
-                    print(self.NEXT_FILE[0])
-
-                if new_state == Gst.State.PAUSED and old_state == Gst.State.READY:
-                    print("The stream is paused. I Must seek")
-                    GObject.idle_add(self.seek, self.LAST_CHAPTER_TIME)
-            else:
-                # print("I don't care")
-                return
         elif t == Gst.MessageType.TAG:
             return
             tag = message.parse_tag()
@@ -76,6 +48,7 @@ class Player:
                 print(tag.nth_tag_name(i))
         elif t == Gst.MessageType.DURATION_CHANGED:
             GObject.idle_add(self.update_duration)
+            pass
         elif t == Gst.MessageType.STREAM_STATUS:
             #print("STATUS:", message.parse_stream_status())
             pass
@@ -84,6 +57,7 @@ class Player:
             if self.DURATION == 0:
                 print("Duration is 0!")
                 GObject.idle_add(self.update_duration)
+                pass
 
         elif t == Gst.MessageType.STREAM_STATUS:
             return
@@ -108,14 +82,20 @@ class Player:
         self.pipeline.bus.add_signal_watch()
         self.pipeline.bus.connect("message", self.msg)
 
-        for c in range(0, channels):
+        for c in range(0, channels + 1):
             self.NEXT_FILE.append(blank_uri)
 
             s = Gst.ElementFactory.make('uridecodebin', 'decoder_%d' % c)
             s.set_property('uri', blank_uri)
-            s.connect("pad-added", self.curry_decode_src_created(c))
+            # s.connect("pad-added", self.curry_decode_src_created(c))
             self.sources.append(s)
             self.pipeline.add(s)
+
+            # ss = Gst.ElementFactory.make('streamsynchronizer', 'ss_%d' % c)
+            # ss.connect("pad-added", self.curry_decode_src_created(c))
+            # self.pipeline.add(ss)
+            # s.link(ss)
+
 
         self.input_v = Gst.ElementFactory.make('input-selector', 'isv')
         self.pipeline.add(self.input_v)
@@ -142,7 +122,7 @@ class Player:
 
         self.vsinks = []
         self.asinks = []
-        for c in range(0, channels):
+        for c in range(0, channels + 1):
             self.vsinks.append(self.input_v.request_pad(tpl_v, "sink_%u", None))
             self.asinks.append(self.input_a.request_pad(tpl_a, "sink_%u", None))
 
@@ -152,7 +132,7 @@ class Player:
         if event.type == Gst.EventType.SEGMENT or \
            event.type == Gst.EventType.TAG:
             return Gst.PadProbeReturn.PASS
-        # print('event %s on pad %s', event.type, pad)
+        print('event %s on pad %s', event.type, pad)
         if event.type == Gst.EventType.EOS:
             print("Pad: %s, child of: %s" %
                   (pad.get_name(), pad.parent.get_name()))
@@ -160,7 +140,7 @@ class Player:
             print("Duration", self.DURATION)
             print('scheduling next track and dropping EOS-Event')
             # if pad.get_name() == "src_1" or pad.get_name() == "src_0":
-            if self.DURATION <= self.get_cur_time() + 5 and self.DURATION > 0:
+            if self.DURATION <= self.get_cur_time() + 0.5 and self.DURATION > 0:
                 idx = pad.parent.get_name()[len('decoder_'):]
                 print('Guessing idx: ', idx)
                 self.on_finished(int(idx))
@@ -187,18 +167,20 @@ class Player:
             print("[Sink %d] Padname: %s" % (sink, padname))
             clock = self.pipeline.get_clock()
             if clock:
-                print("Clock!")
                 runtime = clock.get_time() - self.pipeline.get_base_time()
+                print("Clock! %02f" % (runtime/1000000000))
                 pad.set_offset(runtime)
 
             if "audio" in padname:
                 if self.asinks[sink].is_linked():
+                    print("[A] It's linked")
                     # self.asinkpad.unlink(self.asinkpad.get_peer())
                     pass
 
                 pad.link(self.asinks[sink])
             elif "video" in padname:
                 if self.vsinks[sink].is_linked():
+                    print("[V] It's linked")
                     # self.vsinkpad.unlink(self.vsinkpad.get_peer())
                     pass
 
@@ -226,20 +208,20 @@ class Player:
         newpad = self.input_a.get_static_pad('sink_%d' % channel)
         self.input_a.set_property('active-pad', newpad)
 
-    # running the shit
     def run(self):
         self.pipeline.set_state(Gst.State.PLAYING)
         self.mainloop.run()
 
     def _change_uri(self, start_time, duration):
         print('change uri:', start_time, duration)
-        self.LAST_CHAPTER_TIME = start_time
         self.DURATION = duration
-        print("READYING")
         self.pipeline.set_state(Gst.State.READY)
-        print("READIED")
+        decoder = self.pipeline.get_by_name('decoder_0')
+        decoder.set_property('uri', self.blank_uri)
+        self.pipeline.set_state(Gst.State.PLAYING)
 
         #print('Calling channel now. LCT:', self.LAST_CHAPTER_TIME)
+        self.CHANGING_URI = False
         return False  # Avoid calling repeatedly
 
     def change_uri(self, start_time=0, duration=10):
@@ -248,12 +230,6 @@ class Player:
             return
         self.CHANGING_URI = True
         GObject.idle_add(self._change_uri, start_time, duration)
-
-    def set_next_file(self, uri, channel):
-        print("Current  Next file:", self.NEXT_FILE[channel])
-        print("New      Next file:", uri)
-        self.NEXT_FILE[channel] = uri
-
     def update_duration(self):
         # FIXME sources 0
         # _, d = self.filesrc.query_duration(Gst.Format.TIME)
@@ -263,31 +239,5 @@ class Player:
             return
         self.DURATION = val
         print("Duration:", self.DURATION)
-        if self.on_duration is not None:
-            self.on_duration(self.DURATION)
         return False  # To get the timeout interval to stop
 
-    def seek(self, seek_time_secs):
-        print("Asked to seek to: ", seek_time_secs)
-        if self.BUSY:
-            print("IM BUSY!!!!!!!")
-            return
-        seek_time_secs = min(seek_time_secs, max(self.DURATION - 1, 0))
-        if abs(seek_time_secs - self.get_cur_time()) < 0.5:
-            print("########## Not seeking < 0.5s")
-            pass
-
-        #self.BUSY = True
-        print("Seeking to", seek_time_secs)
-        res = self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH,
-                                  seek_time_secs * Gst.SECOND)
-        #res = self.pipeline.seek(1, Gst.Format.TIME,
-        #        Gst.SeekFlags.FLUSH,
-        #        Gst.SeekType.SET,
-        #        seek_time_secs * Gst.SECOND,
-        #        Gst.SeekType.NONE,
-        #        -1)
-        print("Seeking result", res)
-        #   | Gst.SeekFlags.KEY_UNIT,
-        self.pipeline.set_state(Gst.State.PLAYING)
-        return False  # To get the timeout interval to stop
