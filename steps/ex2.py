@@ -73,12 +73,6 @@ class Player:
         tpl_v = self.input_v.get_pad_template("sink_%u")
         tpl_a = self.input_a.get_pad_template("sink_%u")
 
-        self.vsinks = []
-        self.asinks = []
-        for c in range(0, 4):
-            self.vsinks.append(self.input_v.request_pad(tpl_v, "sink_%u", None))
-            self.asinks.append(self.input_a.request_pad(tpl_a, "sink_%u", None))
-
     def toggle(self):
         print("Togglin")
         self.count += 1
