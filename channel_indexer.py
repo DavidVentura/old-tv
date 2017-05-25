@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import os
+import random
+from itertools import cycle, islice
 
 cwd = os.path.dirname(os.path.realpath(__file__))
 BASEPATH = os.path.join(cwd, "channels/")
@@ -47,5 +49,38 @@ def index():
     return {'ads': ads, 'channels': data}
 
 
+def create_playlist(data):
+    channels = data['channels']
+    ads = data['ads']
+
+    out = {}
+    for c in channels:
+        out[c] = []
+        tupled = tuple(channels[c][v] for v in channels[c])
+        interleaved = roundrobin(*tupled)
+        for program in interleaved:
+            out[c].append(program)
+            out[c].append(random.choice(ads))
+
+    return out
+
+
+def roundrobin(*iterables):
+    "roundrobin('ABC', 'D', 'EF') --> A D E B F C"
+    # Recipe credited to George Sakkis
+    pending = len(iterables)
+    nexts = cycle(iter(it).__next__ for it in iterables)
+    while pending:
+        try:
+            for next in nexts:
+                yield next()
+        except StopIteration:
+            pending -= 1
+            nexts = cycle(islice(nexts, pending))
+
+
 if __name__ == '__main__':
-    print(index())
+    from pprint import pprint
+    d = create_playlist(index())
+    print(d)
+    # pprint(index())

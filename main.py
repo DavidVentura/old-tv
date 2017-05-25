@@ -3,7 +3,6 @@ from player import Player
 import cache
 import os
 import threading
-import random
 import channel_indexer as ci
 import gpio
 import json
@@ -31,48 +30,18 @@ def newest_file(xs):
             ret = f
     return ret
 
+
 def sanitize_status(s, guide):
     status = s
-    channels = guide['channels']
-    ads = guide['ads']
-    for channel in channels.keys():
+    for channel in guide.keys():
         if channel not in status:
             status[channel] = {}
-
-        if 'curType' not in status[channel]:
-            status[channel]['curType'] = 'program'
 
         if 'curFileIndex' not in status[channel]:
             status[channel]['curFileIndex'] = 0
 
         if 'curFileTime' not in status[channel]:
             status[channel]['curFileTime'] = 0
-
-        if 'curProgram' not in status[channel]:
-            status[channel]['curProgram'] = 0
-
-        if status[channel]['curType'] == 'ad':
-            status[channel]['curFileIndex'] = status[channel]['curFileIndex']\
-                % len(ads)
-        else:
-            status[channel]['curProgram'] = status[channel]['curProgram']\
-                % len(channels[channel])
-
-            status[channel]['curFileIndex'] = status[channel]['curFileIndex']\
-                % len(channels[channel][status[channel]['curProgram']])
-
-        if 'lastChapter' not in status[channel]:
-            status[channel]['lastChapter'] = {}
-
-        keys = [k for k in status[channel]['lastChapter'].keys()]
-        for k in keys:
-            if type(k) == str:
-                status[channel]['lastChapter'][int(k)] = status[channel]['lastChapter'][k]
-                del status[channel]['lastChapter'][k]
-
-        for program in channels[channel]:
-            if program not in status[channel]['lastChapter']:
-                status[channel]['lastChapter'][program] = -1
 
     return status
 
@@ -113,52 +82,26 @@ class TrackProgram():
     BLANK_PATH = ci.BLANK_PATH
     guide = {}
     channel = 0
-    program = 0
     status = {}
 
     def get_cur_file(self, channel):
         s = self.get_current_status(channel)
-        ret = ''
-        if s['curType'] == 'ad':
-            ret = os.path.join(self.ADS_PATH,
-                               self.guide['ads'][s['curFileIndex']])
-        else:
-            curfidx = s['lastChapter'][self.program]
-            if curfidx == -1:
-                curfidx = 0
-                # FIXME: What do I do about this?
-                # Setting -1 as having not played a single file
-                # Destroys this part.
-
-            # FIXME self.program
-            ret = os.path.join(self.BASEPATH,
-                               str(channel),
-                               str(self.program),
-                               self.guide['channels'][channel][self.program][curfidx])
+        ret = os.path.join(self.BASEPATH,
+                           str(channel),
+                           self.guide[channel][s['curFileIndex']])
 
         return "file://" + ret
 
     def get_next_file(self, channel):
-        if self.get_current_status(channel)['curType'] == 'ad':
-            return self.get_ad(random.randint(0, 4))
-        else:
-            return self.get_next_chapter(channel, 0)  # FIXME
-
-    def get_next_chapter(self, channel, program):
-        files = self.guide['channels'][channel][program]
+        files = self.guide[channel]
         ret = os.path.join(self.BASEPATH,
                            str(channel),
-                           str(program),
                            files[self.get_current_status(channel)['curFileIndex']])
         return "file://" + ret
 
-    def get_ad(self, idx):
-        return "file://" + os.path.join(self.ADS_PATH,
-                                        self.guide['ads'][idx])
-
     def chaos(self):
         last = 0
-        t = sorted([k for k in self.guide['channels'].keys()])
+        t = sorted([k for k in self.guide.keys()])
         print(t)
         self.player.set_next_file('file://'+'/home/david/git/old-tv/channels/2/0/mtn-pp101.avi.mp4',0)
         while True:
@@ -209,40 +152,18 @@ class TrackProgram():
         self.set_current_status('curFileDuration', duration)
 
     def finished_playing(self, channel):
+        print("finished playing!!")
         if self.channel in self.valid_channels:
+            print("valid channel")
             idx = 0
             cs = self.get_current_status(channel)
-            # Just finished an ad. Go to the next program
-            if cs['curType'] == 'ad':
-                self.set_current_status('curType', 'program')
-                if 'lastChapter' in cs:
-                    next_program = (cs['lastProgramIndex'] + 1) %\
-                        len(self.guide['channels'][self.channel])
-
-                    idx = cs['lastChapter'][next_program] + 1 % \
-                        len(self.guide['channels'][self.channel][self.program])
-                    # Taking index from lastProgramIndex..
-                    # should take from the next program
-
-                    self.program = (self.program + 1) % \
-                        len(self.guide['channels'][self.channel])
-                    self.set_current_status('curProgram', self.program)
-
-            else:  # Just finished a chapter. Go to an ad
-                self.set_current_status('lastProgramIndex', self.program)
-                self.set_current_status('lastChapter',
-                                        {self.program: cs['curFileIndex']})
-
-                self.set_current_status('curType', 'ad')
-                idx = random.randint(0, len(self.guide['ads']) - 1)
-
-            self.set_current_status('curFileIndex', idx)
+            idx = cs['curFileIndex']
+            self.set_current_status('curFileIndex', idx + 1)
             # curFileIndex is used for get_next_file()
             new_file = self.get_next_file(channel)
             self.player.set_next_file(new_file, self.valid_channels.index(channel))
 
         self.set_current_status('curFileTime', 0)
-        # self.set_current_status('curFileDuration', 10) # FIXME
         self.player.change_uri()
 
     def set_channel(self, channel):
@@ -259,11 +180,11 @@ class TrackProgram():
         self.channel = channel
         print("New channel:", self.channel)
         if self.channel not in self.valid_channels:
+            print("Snow")
             self.player.snow()
             return
 
         cs = self.get_current_status(channel)
-        self.program = cs['curProgram']
         self.player.set_next_file(self.get_cur_file(channel), self.valid_channels.index(self.channel))
         if 'curFileDuration' not in cs or cs['curFileTime'] == 0:
             print('curFileDuration' not in cs)
@@ -273,9 +194,9 @@ class TrackProgram():
                                    duration=cs['curFileDuration'])
 
     def __init__(self):
-        self.guide = ci.index()
-        # FIXME: Sorts... poorly
-        self.valid_channels = sorted(list(self.guide['channels'].keys()))
+        self.guide = ci.create_playlist(ci.index())
+        self.guide = { 2: self.guide[2] }
+        self.valid_channels = sorted(list(self.guide.keys()))
 
         statusfile = ''
         statusfile = os.path.join(ci.cwd, "1492733314.json")
@@ -301,4 +222,4 @@ class TrackProgram():
 
 
 if __name__ == "__main__":
-    t = TrackProgram()
+    tp = TrackProgram()

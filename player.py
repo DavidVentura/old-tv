@@ -59,6 +59,7 @@ class Player:
                     print("PAUSED")
                     self.CHANGING_URI = False
                     print("URI = CHANGED")
+                    print(self.NEXT_FILE[0])
 
                 if new_state == Gst.State.PAUSED and old_state == Gst.State.READY:
                     print("The stream is paused. I Must seek")
@@ -147,7 +148,7 @@ class Player:
 
     def on_pad_event(self, pad, info):
         event = info.get_event()
-        #if event.type == Gst.EventType.GAP or \
+        # if event.type == Gst.EventType.GAP or \
         if event.type == Gst.EventType.SEGMENT or \
            event.type == Gst.EventType.TAG:
             return Gst.PadProbeReturn.PASS
@@ -183,7 +184,13 @@ class Player:
             padstr = padcaps.get_structure(0)
             padname = padstr.get_name()
 
-            print("Padname:", padname)
+            print("[Sink %d] Padname: %s" % (sink, padname))
+            clock = self.pipeline.get_clock()
+            if clock:
+                print("Clock!")
+                runtime = clock.get_time() - self.pipeline.get_base_time()
+                pad.set_offset(runtime)
+
             if "audio" in padname:
                 if self.asinks[sink].is_linked():
                     # self.asinkpad.unlink(self.asinkpad.get_peer())
@@ -210,7 +217,7 @@ class Player:
         print("Switching to snow. Current clock: ", self.get_cur_time())
         # self.NEXT_FILE = self.blank_uri
         # FIXME
-        self.change_channel(1)
+        self.change_channel(0)
 
     def change_channel(self, channel):
         newpad = self.input_v.get_static_pad('sink_%d' % channel)
