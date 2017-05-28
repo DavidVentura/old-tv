@@ -1,0 +1,74 @@
+<html>
+	<head>
+		<!-- Latest compiled and minified CSS -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+		<!-- Optional theme -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+		<!-- Latest compiled and minified JavaScript -->
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+		<script>
+			window.onload = function() {
+				var find 	= document.getElementById('find');
+				var results	= document.getElementById('results');
+				var input 	= document.getElementById('input');
+				var error 	= document.getElementById('error');
+				function validate() {
+					if (input.value == 'AV28051967XYZ') {
+						results.classList.add('visible');
+						results.classList.remove('hidden');
+						find.classList.add('hidden');
+						find.classList.remove('visible');
+					} else {
+						error.classList.add('visible');
+						error.classList.remove('hidden');
+					}
+				}
+				input.onkeypress = function(e) {
+					if (!e) e = window.event;
+					var keyCode = e.keyCode || e.which;
+					error.classList.add('hidden');
+					error.classList.remove('visible');
+					if (keyCode == '13'){
+						validate();
+						return false;
+					}
+				};
+			}
+		</script>
+	</head>
+	<body style='max-width: 70%;margin:0px auto; '>
+		<div id='find' style='text-align:center;'>
+			<h2>Ingrese su numero de tracking</h2>
+			<div class='row'>
+				<input type=text max-length=32 class='form-control col-md-11' id='input'/>
+				<div style='color:red' class='hidden' id='error'>Codigo invalido</div>
+			</div>
+		</div>
+		<div id='results' class='hidden'>
+			<h2>Resultados para AV28051967XYZ</h2>
+			<table class='table table-striped'>
+				<thead>
+					<tr>
+						<th>Fecha</th>
+						<th>Localidad</th>
+						<th>Descripcion</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>28/05/2017</td>
+						<td>CABA</td>
+						<td>Despachado de Lavalle 3975</td>
+					</tr>
+					<tr style='background-color:#f2dede'>
+						<td>28/05/2017</td>
+						<td>Buenos Aires</td>
+						<td>ADUANA: Canal rojo</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</body>
+</head>
