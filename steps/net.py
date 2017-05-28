@@ -1,4 +1,7 @@
+#!/usr/bin/env python3
 import gi
+import os
+import time
 import sys
 import platform
 gi.require_version('Gst', '1.0')
@@ -12,6 +15,12 @@ class Player:
     count = 2
     values = [2, 4, 5, 8]
 
+    def exit(self):
+        print("We are going to restart the program!")
+        time.sleep(1)
+        print("Bye!")
+        os.execl(sys.executable, sys.executable, *sys.argv)
+
     def msg(self, bus, message):
         if not message:
             return
@@ -19,15 +28,16 @@ class Player:
         t = message.type
         if t == Gst.MessageType.EOS:
             print("We got EOS on the pipeline.")
-            sys.exit(1)
+            self.exit()
         elif t == Gst.MessageType.ERROR:
             err, dbg = message.parse_error()
             print("ERROR:", message.src.get_name(), " ", err.message)
             if dbg:
                 print("debugging info:", dbg)
-#        print(t)
+            self.exit()
 
     def __init__(self):
+        print("Welcome!")
         self.mainloop = GObject.MainLoop()
         self.pipeline = Gst.Pipeline.new("mypipeline")
 
@@ -71,20 +81,11 @@ class Player:
         self.pipeline.set_state(Gst.State.PLAYING)
         return True
 
-    def next_file(self):
-        self.pipeline.set_state(Gst.State.READY)
-        d = self.pipeline.get_by_name('decoder')
-        d.set_property('uri', d.get_property('uri'))
-        self.pipeline.set_state(Gst.State.PLAYING)
-        print('NEXT_FILE READY')
-
     def on_pad_event(self, pad, info):
         event = info.get_event()
 
         if event.type == Gst.EventType.EOS:
-            print('scheduling next track and dropping EOS-Event')
-            GObject.idle_add(self.next_file)
-            # FIXME RESTART
+            self.exit()
             return Gst.PadProbeReturn.DROP
 
         return Gst.PadProbeReturn.PASS
