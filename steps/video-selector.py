@@ -6,25 +6,27 @@ from gi.repository import Gst
 
 Gst.init(None)
 
-sources = [ 'tcpclientsrc host=192.168.1.7 port=2000 ! queue ! matroskademux name=d1 ! queue ! avdec_h264',
-            'tcpclientsrc host=192.168.1.7 port=4000 ! queue ! matroskademux name=d2 ! queue ! avdec_h264',
-            'tcpclientsrc host=192.168.1.7 port=5000 ! queue ! matroskademux name=d3 ! queue ! avdec_h264',
-            'tcpclientsrc host=192.168.1.7 port=8000 ! queue ! matroskademux name=d4 ! queue ! avdec_h264',
+sources = [ 'tcpclientsrc host=192.168.1.7 port=2000 ! queue ! matroskademux name=d1 ! queue ! h264parse',
+            'tcpclientsrc host=192.168.1.7 port=4000 ! queue ! matroskademux name=d2 ! queue ! h264parse',
+            'tcpclientsrc host=192.168.1.7 port=5000 ! queue ! matroskademux name=d3 ! queue ! h264parse',
+            'tcpclientsrc host=192.168.1.7 port=8000 ! queue ! matroskademux name=d4 ! queue ! h264parse',
           ]
 
-v_output = 'videoconvert !  autovideosink'
+v_output = 'm.'
 s_sources = ' ! in. '.join(sources)
 s =  '{sources} ! in. input-selector name=in ! {output}'.format(output=v_output, sources=s_sources)
 
 asources = [
-            'd1. ! queue ! mpegaudioparse ! avdec_mp3',
-            'd2. ! queue ! mpegaudioparse ! avdec_mp3',
-            'd3. ! queue ! mpegaudioparse ! avdec_mp3',
-            'd4. ! queue ! mpegaudioparse ! avdec_mp3',
+            'd1. ! queue',
+            'd2. ! queue',
+            'd3. ! queue',
+            'd4. ! queue',
         ]
-a_output = 'audioconvert ! autoaudiosink'
+a_output = 'matroskamux streamable=true name=m'
 a_sources = ' ! ain. '.join(asources)
-s = '{s} {asources} ! ain. input-selector name=ain ! {output}'.format(asources=a_sources, s=s, output=a_output)
+s = '{s} {asources} ! ain. input-selector name=ain ! mpegaudioparse ! {output}'.format(asources=a_sources, s=s, output=a_output)
+
+s = s + ' ! tcpserversink host=0.0.0.0 port=4444 sync-method=next-keyframe'
 print(s)
 pipeline = Gst.parse_launch(s)
 
