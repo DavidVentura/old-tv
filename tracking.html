@@ -1,5 +1,6 @@
 <html>
 	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<!-- Latest compiled and minified CSS -->
 		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
 
@@ -8,6 +9,12 @@
 
 		<!-- Latest compiled and minified JavaScript -->
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+		<style>
+			body { max-width: 70% }
+			@media only screen and (max-width: 800px) {
+				body { max-width: 90% }
+			}
+		</style>
 		<script>
 			window.onload = function() {
 				var find 	= document.getElementById('find');
@@ -38,7 +45,7 @@
 			}
 		</script>
 	</head>
-	<body style='max-width: 70%;margin:0px auto; '>
+	<body style='margin:0px auto; '>
 		<div id='find' style='text-align:center;'>
 			<h2>Ingrese su numero de tracking</h2>
 			<div class='row'>
