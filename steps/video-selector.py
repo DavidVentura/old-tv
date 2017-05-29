@@ -26,27 +26,31 @@ a_output = 'matroskamux streamable=true name=m'
 a_sources = ' ! ain. '.join(asources)
 s = '{s} {asources} ! ain. input-selector name=ain ! mpegaudioparse ! {output}'.format(asources=a_sources, s=s, output=a_output)
 
-s = s + ' ! tcpserversink host=0.0.0.0 port=4444 sync-method=next-keyframe'
+s = s + ' ! tcpserversink host=0.0.0.0 port=4444 sync-method=latest-keyframe'
 print(s)
 pipeline = Gst.parse_launch(s)
 
 pipeline.set_state(Gst.State.PLAYING)
-idx = 0
+
+vswitch = pipeline.get_by_name('in')
+aswitch = pipeline.get_by_name('ain')
+vpads = []
+apads = []
+for i in range(0, len(sources)):
+    vpads.append(vswitch.get_static_pad('sink_%d' % i))
+    apads.append(aswitch.get_static_pad('sink_%d' % i))
 
 
 def do_switch(idx):
     idx = max(idx, 0)
-    idx = min(idx, len(sources))
-    newpad = aswitch.get_static_pad('sink_%d' % idx)
-    aswitch.set_property("active-pad", newpad)
+    idx = min(idx, len(sources) - 1)
+    aswitch.set_property("active-pad", apads[idx])
 
-    newpad = vswitch.get_static_pad('sink_%d' % idx)
-    vswitch.set_property("active-pad", newpad)
+    vswitch.set_property("active-pad", vpads[idx])
     print("Switched to %d" % idx)
 
 
-vswitch = pipeline.get_by_name('in')
-aswitch = pipeline.get_by_name('ain')
+idx = 0
 do_switch(0)
 while True:
     print("Waiting for input")
