@@ -108,6 +108,7 @@ if __name__ == '__main__':
         command = command + (" -i '%s'" % newpath)
 
     #-filter_complex '[0:v] setsar=sar=1/1[sarfix0]; [1:v] setsar=sar=1/1[sarfix1]; [sarfix0] [0:a] [sarfix1] [1:a] concat=n=2:v=1:a=1 [v] [a]' -map '[v]' -map '[a]' -c:v libx264 -c:a libmp3lame -ac 1 -preset:v veryfast -y channel5.mp4
+    l = min(l, 184) #FIXME ??
     fc = " -filter_complex '"
     concat = ''
     for i in range(0, l):
@@ -116,6 +117,6 @@ if __name__ == '__main__':
         concat += '[sarfix%d] [%d:a] ' % (i, i)
 
     fc = fc + concat + 'concat=n=%d:v=1:a=1 [v] [a]\'' % l
-    command = command + fc + " -map '[v]' -map '[a]' -c:v libx264 -c:a libmp3lame -ac 1 -preset:v veryfast -y channel%d.mp4" % channel
+    command = command + fc + " -map '[v]' -map '[a]' -c:v libx264 -c:a libmp3lame -ac 1 -preset:v veryfast -movflags +faststart -y channel%d.mp4" % channel
     print(command)
     # pprint(index())
