@@ -117,6 +117,6 @@ if __name__ == '__main__':
         concat += '[sarfix%d] [%d:a] ' % (i, i)
 
     fc = fc + concat + 'concat=n=%d:v=1:a=1 [v] [a]\'' % l
-    command = command + fc + " -map '[v]' -map '[a]' -c:v libx264 -c:a libmp3lame -ac 1 -preset:v veryfast -movflags +faststart -y channel%d.mp4" % channel
+    command = command + fc + " -map '[v]' -map '[a]' -c:v libx264 -c:a libmp3lame -ac 1 -preset:v veryfast -movflags +faststart -g 12 -r 24 -y channel%d.mp4" % channel
     print(command)
     # pprint(index())
