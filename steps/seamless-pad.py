@@ -9,6 +9,7 @@ GObject.threads_init()
 Gst.init(None)
 
 class Player:
+    first = True
 
     def msg(self, bus, message):
         if not message:
@@ -19,7 +20,14 @@ class Player:
             # print(t)
             pass
 
-        if t == Gst.MessageType.EOS:
+        if t == Gst.MessageType.ASYNC_DONE:
+            if self.first:
+                self.seek()
+                self.first = False
+        elif t == Gst.MessageType.SEGMENT_DONE:
+            print("Looping...")
+            self.seek()
+        elif t == Gst.MessageType.EOS:
             print("We got EOS on the pipeline.")
             sys.exit(1)
         elif t == Gst.MessageType.ERROR:
@@ -39,15 +47,16 @@ class Player:
         f = Gst.ElementFactory.make('filesrc')
         f.set_property('location', "/home/david/git/old-tv/noise/test.mp4")
         q = Gst.ElementFactory.make('qtdemux', 'demuxer_%d' % 0)
-        self.p = Gst.ElementFactory.make('h264parse')
+        self.q = Gst.ElementFactory.make('queue')
+        p = Gst.ElementFactory.make('h264parse')
         d = Gst.ElementFactory.make('avdec_h264')
 
-        print("asd")
         q.connect("pad-added", self.curry_decode_src_created(0))
 
         self.pipeline.add(f)
         self.pipeline.add(q)
-        self.pipeline.add(self.p)
+        self.pipeline.add(p)
+        self.pipeline.add(self.q)
         self.pipeline.add(d)
 
         if platform.machine() == 'x86_64':
@@ -58,7 +67,8 @@ class Player:
 
         self.pipeline.add(vsink)
         f.link(q)
-        self.p.link(d)
+        self.q.link(p)
+        p.link(d)
         d.link(vsink)
 
         print("init")
@@ -69,6 +79,8 @@ class Player:
         if event.type == Gst.EventType.TAG:
             return Gst.PadProbeReturn.PASS
         print('event %s on pad %s', event.type, pad.get_name())
+        #if event.type == Gst.EventType.SEGMENT_DONE \
+        #or event.type == Gst.EventType.EOS:
         if event.type == Gst.EventType.EOS:
             print("Pad: %s, child of: %s" %
                   (pad.get_name(), pad.parent.get_name()))
@@ -110,7 +122,7 @@ class Player:
                 #     print("p It's linked")
                     # self.vsinkpad.unlink(self.vsinkpad.get_peer())
                 print("linking")
-                pad.link(self.p.get_static_pad("sink"))
+                pad.link(self.q.get_static_pad("sink"))
 
         return decode_src_created
 
@@ -120,8 +132,10 @@ class Player:
         return delta / 1000000000
 
     def seek(self):
-        # flags = Gst.SeekFlags.FLUSH | Gst.SeekFlags.SEGMENT
-        flags = Gst.SeekFlags.SEGMENT
+        if self.first:
+            flags = Gst.SeekFlags.FLUSH | Gst.SeekFlags.SEGMENT
+        else:
+            flags = Gst.SeekFlags.SEGMENT
         self.pipeline.seek_simple(Gst.Format.TIME, flags, 0)
 
 loop = GObject.MainLoop()
