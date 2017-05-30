@@ -35,6 +35,7 @@ class Player:
             print("ERROR:", message.src.get_name(), " ", err.message)
             if dbg:
                 print("debugging info:", dbg)
+            loop.quit()
         else:
             print("Unexpected message:", t)
 
