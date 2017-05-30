@@ -44,20 +44,21 @@ This repo contains all the software required which is mostly glue and:
 
 Use gst-uninstalled:
 
-Instal deps:
+Install deps:
 
 ```bash
+sudo apt-get build-dep gstreamer1.0-plugins-{base,good,bad,ugly}
 sudo apt-get install autoconf autopoint libtool bison flex libgstreamer1.0-dev yasm liborc-0.4-dev libx264-dev git-core libegl1-mesa-dev libgles2-mesa-dev python-gi-dev python-dev python3-dev
-curl https://cgit.freedesktop.org/gstreamer/gstreamer/plain/scripts/create-uninstalled-setup.sh | sh
-```
-
-As this doesn't clone `gst-omx` or `gst-python` you have to clone it yourself
-
-```
-git clone --depth 1 https://anongit.freedesktop.org/git/gstreamer/gst-omx
-cd gst-omx
-./autogen.sh --with-omx-header-path=/opt/vc/include/IL --with-omx-target=rpi
-make -j5
+wget https://cgit.freedesktop.org/gstreamer/gstreamer/plain/scripts/create-uninstalled-setup.sh
+# As this doesn't clone gst-omx you have to edit the script and add it yourself
+# I also removed gst-libav
+# Now you have to cd into every directory (first gstreamer, then gst-plugins-base, then the rest) and run ./autoconf.sh && make -j5
+# I had to run 
+# ./configure CFLAGS=-I/opt/vc/include -I /opt/vc/include/interface/vcos/pthreads -I /opt/vc/include/interface/vmcs_host/linux/ LDFLAGS=-L/opt/vc/lib --disable-gtk-doc --disable-opengl --enable-gles2 --enable-egl --disable-glx --disable-x11 --disable-wayland --enable-dispmanx --with-gles2-module-name=/opt/vc/lib/libGLESv2.so --with-egl-module-name=/opt/vc/lib/libEGL.so
+# under gst-plugins-bad
+#
+# and ./autogen.sh --with-omx-header-path=/opt/vc/include/IL --with-omx-target=rpi
+# under gst-omx
 ```
 
 
@@ -68,6 +69,11 @@ Blanking the tty
 ```bash
 #!/bin/bash
 setterm -reset -cursor off | sudo tee /dev/tty1 > /dev/null
+```
+
+Turning the screen on
+```bash
+echo -ne "\033[9;0]" | sudo tee /dev/tty1
 ```
 
 Disabling graphical warnings (lighting bolt) (fix your psu!)
