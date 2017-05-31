@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
+import ctypes
 import gi
 import sys
 import platform
 gi.require_version('Gst', '1.0')
-from gi.repository import GObject, Gst, GLib
+try:
+    gi.require_version('GstGL', '1.0')
+    from gi.repository import GObject, Gst, GLib, GstGL
+except:
+    from gi.repository import GObject, Gst, GLib
 
 GObject.threads_init()
 Gst.init(None)
@@ -14,13 +19,11 @@ class Player:
     count = 0
     duration = 0
     sources = ["/home/david/git/old-tv/noise/test.mp4",
-               "/home/david/git/old-tv/publicidades_80_3.mp4",
                "/home/david/git/old-tv/fast22.mp4",
                "/home/david/git/old-tv/fast4.mp4",
                "/home/david/git/old-tv/fast5.mp4",
-               "/home/david/git/old-tv/publicidades_80_6.mp4",
                "/home/david/git/old-tv/fast88.mp4"
-              ]
+	       ]
 
     def msg(self, bus, message):
         if not message:
@@ -36,6 +39,7 @@ class Player:
                 if self.first[key]:
                     GLib.idle_add(self.seek, key)
                     self.first[key] = False
+                    break
         elif t == Gst.MessageType.SEGMENT_DONE:
             print("Looping... src: ", message.src.name)
             GLib.idle_add(self.seek, self.FINISHING_FILE)
@@ -58,36 +62,47 @@ class Player:
         self.pipeline.bus.add_signal_watch()
         self.pipeline.bus.connect("message", self.msg)
 
+        enable_bcm = (platform.machine() != 'x86_64')
+
         def sub_pipeline(index, filename):
             filesrc = Gst.ElementFactory.make('filesrc')
             filesrc.set_property('location', filename)
             demux = Gst.ElementFactory.make('qtdemux', 'demuxer_%d' % index)
-            q = Gst.ElementFactory.make('queue')
+            vq = Gst.ElementFactory.make('queue')
             vparse = Gst.ElementFactory.make('h264parse')
-            vdec = Gst.ElementFactory.make('avdec_h264')
+            if enable_bcm:
+                vdec = Gst.ElementFactory.make('omxh264dec')
+            else:
+                vdec = Gst.ElementFactory.make('avdec_h264')
 
             aq = Gst.ElementFactory.make('queue')
+            aparse = Gst.ElementFactory.make('mpegaudioparse')
+            adec = Gst.ElementFactory.make('avdec_mp3')
 
             demux.connect("pad-added",
-                          self.curry_decode_src_created(index, q, aq))
+                          self.curry_decode_src_created(index, vq, aq))
 
             self.pipeline.add(filesrc)
             self.pipeline.add(demux)
-            self.pipeline.add(q)
+            self.pipeline.add(vq)
             self.pipeline.add(vparse)
             self.pipeline.add(vdec)
 
             self.pipeline.add(aq)
+            self.pipeline.add(aparse)
+            self.pipeline.add(adec)
 
             filesrc.link(demux)
 
             # Video stuff
-            q.link(vparse)
+            vq.link(vparse)
             vparse.link(vdec)
             vdec.link(self.isv)
 
             # Audio stuff
-            aq.link(self.isa)
+            aq.link(aparse)
+            aparse.link(adec)
+            adec.link(self.isa)
 
             self.first[str(index)] = True
 
@@ -96,16 +111,10 @@ class Player:
         self.pipeline.add(self.isv)
         self.pipeline.add(self.isa)
 
-        aparse = Gst.ElementFactory.make('mpegaudioparse')
-        adec = Gst.ElementFactory.make('avdec_mp3')
-
-        self.pipeline.add(aparse)
-        self.pipeline.add(adec)
-
         for f in range(0, len(self.sources)):
             sub_pipeline(f, self.sources[f])
 
-        if platform.machine() == 'x86_64':
+        if not enable_bcm:
             vsink = Gst.ElementFactory.make("autovideosink", None)
         else:
             vsink = Gst.ElementFactory.make("glimagesink", None)
@@ -113,7 +122,7 @@ class Player:
 
         self.pipeline.add(vsink)
 
-        asink = Gst.ElementFactory.make("autoaudiosink", None)
+        asink = Gst.ElementFactory.make("alsasink", None)
         self.pipeline.add(asink)
 
         tpl_a = self.isa.get_pad_template("sink_%u")
@@ -131,12 +140,31 @@ class Player:
         else:
             self.isv.link(vsink)
 
-        self.isa.link(aparse)
-        aparse.link(adec)
-        adec.link(asink)
-        # GLib.idle_add(self.toggle, False)
-        GLib.timeout_add(1500, self.toggle)
+        self.isa.link(asink)
+        GLib.timeout_add(1000, self.toggle)
 
+        if enable_bcm:
+            # Raspberry pi:  Create a dispmanx element for gstreamer
+            # to render to and pass it to gstreamer
+            import bcm
+
+            bus = self.pipeline.get_bus()
+            width, height = bcm.get_resolution()
+
+            # Create a window slightly smaller than fullscreen
+            nativewindow = bcm.create_native_window(0, 5, width, height-10, alpha_opacity=0)
+            win_handle = ctypes.addressof(nativewindow)
+
+            def on_sync_message(bus, msg):
+                if msg.get_structure().get_name() == 'prepare-window-handle':
+                    _sink = msg.src
+                    _sink.set_window_handle(win_handle)
+                    _sink.set_render_rectangle(0, 0, nativewindow.width, nativewindow.height)
+
+            bus.enable_sync_message_emission()
+            bus.connect('sync-message::element', on_sync_message)
+        else:
+            nativewindow, win_handle = None, None
 
     def on_pad_event(self, pad, info):
         event = info.get_event()
@@ -218,6 +246,7 @@ class Player:
             flags = Gst.SeekFlags.SEGMENT
         # self.pipeline.seek_simple(Gst.Format.TIME, flags, 0)
         demuxer.seek_simple(Gst.Format.TIME, flags, 0)
+        return False # Timeout add
 
     def toggle(self, ret=True):
         self.count += 1
