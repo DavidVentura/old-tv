@@ -141,7 +141,6 @@ class Player:
             self.isv.link(vsink)
 
         self.isa.link(asink)
-        GLib.timeout_add(1000, self.toggle)
 
         if enable_bcm:
             # Raspberry pi:  Create a dispmanx element for gstreamer
@@ -246,24 +245,27 @@ class Player:
             flags = Gst.SeekFlags.SEGMENT
         # self.pipeline.seek_simple(Gst.Format.TIME, flags, 0)
         demuxer.seek_simple(Gst.Format.TIME, flags, 0)
-        return False # Timeout add
+        return False  # Timeout add
 
-    def toggle(self, ret=True):
-        self.count += 1
-        self.count = self.count % len(self.sources)
-        print("Toggling %d" % self.count)
-        newpad = self.isv.get_static_pad('sink_%d' % self.count)
+    def toggle(self, target):
+        target = max(target)
+        target = min(target, len(self.sources) - 1)
+        print("Toggling %d" % target)
+        newpad = self.isv.get_static_pad('sink_%d' % target)
         self.isv.set_property('active-pad', newpad)
 
-        newpad = self.isa.get_static_pad('sink_%d' % self.count)
+        newpad = self.isa.get_static_pad('sink_%d' % target)
         self.isa.set_property('active-pad', newpad)
-        return ret
 
+    def start(self):
+        loop = GObject.MainLoop()
+        p = Player()
+        p.pipeline.set_state(Gst.State.PLAYING)
+        try:
+            loop.run()
+        except Exception as e:
+            print(e)
 
-loop = GObject.MainLoop()
-p = Player()
-p.pipeline.set_state(Gst.State.PLAYING)
-try:
-    loop.run()
-except Exception as e:
-    print(e)
+if __name__ == '__main__':
+    p = Player()
+    p.start()
