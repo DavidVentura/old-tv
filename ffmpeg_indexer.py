@@ -100,7 +100,7 @@ if __name__ == '__main__':
     channel = int(sys.argv[1])
     files = d[channel]
     out = []
-    command = "ffmpeg"
+    command = "ffmpeg -hide_banner -loglevel error -stats"
     l = len(files)
     for f in files:
         newpath = find(f, "./")
