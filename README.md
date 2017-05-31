@@ -98,3 +98,48 @@ gpu_mem=128
 avoid_warnings=1
 initial_turbo=60
 ```
+
+
+### Misc info and problems
+
+#### Seeking
+
+```
+If you do a SEGMENT seek after EOS, that's not going to work. A flush 
+is needed to get rid of the EOS flag. 
+
+
+The easiest will probably be to just do flushing seeks on the srcpad of 
+your filesrc/demuxer/decoder bin, and to update the pad-offset on that 
+srcpad accordingly. 
+
+Alternatively you could set an initial correct pad-offset (to the 
+running time of the pipeline when it starts), and then only do SEGMENT 
+seeks. You need to ensure that the first data you receive from there is 
+already based on a SEGMENT seek, i.e. preroll that input and throw away 
+all data, do a SEGMENT/FLUSH seek and only use the data that comes from 
+that seek. At the end you will get a SEGMENT_DONE message (no EOS!) and 
+could then do another SEGMENT/non-FLUSH seek back. 
+
+Take a look at this example: 
+https://cgit.freedesktop.org/gstreamer/gst-plugins-good/tree/tests/icles/test-segment-seeks.c
+It shows how to use SEGMENT seeks in general. 
+```
+
+[Source](http://gstreamer-devel.966125.n4.nabble.com/seek-event-in-a-pipeline-with-multiple-source-bins-td4678239.html)
+
+#### "decreasing timestamp" on the raspberry Pi
+
+```
+:) Also it's a High profile stream, thus more complex to decode anyway.
+```
+I solved it by re-encoding the streams with constrained-baseline profile
+[Source](https://lists.freedesktop.org/archives/gstreamer-bugs/2013-October/112257.html)
+
+#### OMX window to get glimagesink fullscreen
+
+[Source](https://github.com/stuaxo/gstreamer-dispmanx-demo)
+
+#### No corresponding frame found
+
+??
