@@ -151,7 +151,7 @@ class Player:
             width, height = bcm.get_resolution()
 
             # Create a window slightly smaller than fullscreen
-            nativewindow = bcm.create_native_window(0, 5, width, height-10, alpha_opacity=0)
+            nativewindow = bcm.create_native_window(0, 0, width, height, alpha_opacity=0)
             win_handle = ctypes.addressof(nativewindow)
 
             def on_sync_message(bus, msg):
