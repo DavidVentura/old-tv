@@ -259,12 +259,12 @@ class Player:
 
     def start(self):
         loop = GObject.MainLoop()
-        p = Player()
-        p.pipeline.set_state(Gst.State.PLAYING)
+        self.pipeline.set_state(Gst.State.PLAYING)
         try:
             loop.run()
         except Exception as e:
             print(e)
+
 
 if __name__ == '__main__':
     p = Player()
