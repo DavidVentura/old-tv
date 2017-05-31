@@ -248,7 +248,7 @@ class Player:
         return False  # Timeout add
 
     def toggle(self, target):
-        target = max(target)
+        target = max(0, target)
         target = min(target, len(self.sources) - 1)
         print("Toggling %d" % target)
         newpad = self.isv.get_static_pad('sink_%d' % target)
