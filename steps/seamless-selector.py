@@ -12,6 +12,12 @@ class Player:
     first = {}
     count = 0
     duration = 0
+    sources = ["/home/david/git/old-tv/noise/test.mp4",
+               "/home/david/git/old-tv/fast22.mp4",
+               "/home/david/git/old-tv/fast4.mp4",
+               "/home/david/git/old-tv/fast5.mp4",
+               "/home/david/git/old-tv/fast88.mp4"
+              ]
 
     def msg(self, bus, message):
         if not message:
@@ -32,13 +38,15 @@ class Player:
                 # self.first = False
                 return
         elif t == Gst.MessageType.SEGMENT_DONE:
-            print("Looping... IGNORED")
-            for el in range(0, 2):
+            print("Looping... ")
+            for el in range(0, len(self.sources)):
                 d = self.pipeline.get_by_name("demuxer_%d" % el)
                 _, mydur = d.query_duration(Gst.Format.TIME)
-                # print(el, d.query_duration(Gst.Format.TIME))
-                print(mydur, self.duration)
+                _, cur = self.pipeline.query_position(Gst.Format.TIME)
+                print(mydur, self.duration, cur)
                 if mydur == self.duration:
+                    print("element: %d" % el)
+                    # print("FORCED: 0")
                     GLib.idle_add(self.seek, el)
             # sys.exit(1)
             # self.seek()
@@ -87,9 +95,8 @@ class Player:
         self.isv = Gst.ElementFactory.make('input-selector')
         self.pipeline.add(self.isv)
 
-        sub_pipeline(0, "/home/david/git/old-tv/noise/noise.mp4")
-        # sub_pipeline(0, "/home/david/git/old-tv/noise/test.mp4")
-        sub_pipeline(1, "/home/david/git/old-tv/fast22.mp4")
+        for f in range(0, len(self.sources)):
+            sub_pipeline(f, self.sources[f])
 
         if platform.machine() == 'x86_64':
             vsink = Gst.ElementFactory.make("autovideosink", None)
@@ -104,7 +111,7 @@ class Player:
 
         self.isv.link(vsink)
         # GLib.idle_add(self.toggle, False)
-        GLib.timeout_add(2000, self.toggle)
+        GLib.timeout_add(1000, self.toggle)
 
 
     def on_pad_event(self, pad, info):
@@ -145,7 +152,7 @@ class Player:
             if clock:
                 runtime = clock.get_time() - self.pipeline.get_base_time()
                 print("Clock! %02f" % (runtime/1000000000))
-                pad.set_offset(clock.get_time() + self.duration) # FIXME?
+                # pad.set_offset(clock.get_time() + self.duration) # FIXME?
 
             if "audio" in padname:
                 return
@@ -180,13 +187,13 @@ class Player:
         demuxer.seek_simple(Gst.Format.TIME, flags, 0)
 
     def toggle(self, ret=True):
-        print("Togglin")
         self.count += 1
-        self.count = self.count % 2
-        print(self.count)
+        self.count = self.count % len(self.sources)
+        print("Toggling %d" % self.count)
         newpad = self.isv.get_static_pad('sink_%d' % self.count)
         self.isv.set_property('active-pad', newpad)
         return ret
+
 
 loop = GObject.MainLoop()
 p = Player()
