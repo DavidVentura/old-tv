@@ -97,6 +97,7 @@ sdtv_aspect=1  # 4:3
 gpu_mem=128
 avoid_warnings=1
 initial_turbo=60
+dtparam=audio=on # enable stereo jack
 ```
 
 
