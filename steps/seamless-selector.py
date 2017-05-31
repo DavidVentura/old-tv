@@ -9,10 +9,11 @@ GObject.threads_init()
 Gst.init(None)
 
 class Player:
+    FINISHING_FILE = 0
     first = {}
     count = 0
     duration = 0
-    sources = ["/home/david/git/old-tv/noise/test.mp4",
+    sources = ["/home/david/git/old-tv/noise/noise.mp4",
                "/home/david/git/old-tv/fast22.mp4",
                "/home/david/git/old-tv/fast4.mp4",
                "/home/david/git/old-tv/fast5.mp4",
@@ -38,16 +39,19 @@ class Player:
                 # self.first = False
                 return
         elif t == Gst.MessageType.SEGMENT_DONE:
-            print("Looping... ")
-            for el in range(0, len(self.sources)):
-                d = self.pipeline.get_by_name("demuxer_%d" % el)
-                _, mydur = d.query_duration(Gst.Format.TIME)
-                _, cur = self.pipeline.query_position(Gst.Format.TIME)
-                print(mydur, self.duration, cur)
-                if mydur == self.duration:
-                    print("element: %d" % el)
-                    # print("FORCED: 0")
-                    GLib.idle_add(self.seek, el)
+            print("Looping... src: ", message.src.name)
+            GLib.idle_add(self.seek, self.FINISHING_FILE)
+            # help(message)
+            # sys.exit(1)
+            #for el in range(0, len(self.sources)):
+            #    d = self.pipeline.get_by_name("demuxer_%d" % el)
+            #    _, mydur = d.query_duration(Gst.Format.TIME)
+            #    _, cur = self.pipeline.query_position(Gst.Format.TIME)
+            #    print(mydur, self.duration, cur)
+            #    if mydur == self.duration:
+            #        print("element: %d" % el)
+            #        # print("FORCED: 0")
+            #        GLib.idle_add(self.seek, el)
             # sys.exit(1)
             # self.seek()
         elif t == Gst.MessageType.EOS:
@@ -120,7 +124,6 @@ class Player:
         if event.type == Gst.EventType.TAG:
             return Gst.PadProbeReturn.PASS
         print('event %s on pad %s', event.type, pad.get_name())
-        # event.type == Gst.EventType.SEGMENT_DONE or 
         if event.type == Gst.EventType.EOS:
             print("Pad: %s, child of: %s" %
                   (pad.get_name(), pad.parent.get_name()))
@@ -129,6 +132,13 @@ class Player:
             print('Guessing idx: ', idx)
             GLib.idle_add(self.seek, idx)
             return Gst.PadProbeReturn.DROP
+        if event.type == Gst.EventType.SEGMENT_DONE:
+            print("PROBE: Segment")
+            print("Pad: %s, child of: %s" %
+                  (pad.get_name(), pad.parent.get_name()))
+            idx = pad.get_name().split("_")[1]
+            self.FINISHING_FILE = idx
+            return Gst.PadProbeReturn.PASS
 
         return Gst.PadProbeReturn.PASS
 
