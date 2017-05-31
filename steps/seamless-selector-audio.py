@@ -67,8 +67,6 @@ class Player:
             vdec = Gst.ElementFactory.make('avdec_h264')
 
             aq = Gst.ElementFactory.make('queue')
-            aparse = Gst.ElementFactory.make('mpegaudioparse')
-            adec = Gst.ElementFactory.make('avdec_mp3')
 
             demux.connect("pad-added",
                           self.curry_decode_src_created(index, q, aq))
@@ -80,8 +78,6 @@ class Player:
             self.pipeline.add(vdec)
 
             self.pipeline.add(aq)
-            self.pipeline.add(aparse)
-            self.pipeline.add(adec)
 
             filesrc.link(demux)
 
@@ -91,9 +87,7 @@ class Player:
             vdec.link(self.isv)
 
             # Audio stuff
-            aq.link(aparse)
-            aparse.link(adec)
-            adec.link(self.isa)
+            aq.link(self.isa)
 
             self.first[str(index)] = True
 
@@ -101,6 +95,12 @@ class Player:
         self.isa = Gst.ElementFactory.make('input-selector')
         self.pipeline.add(self.isv)
         self.pipeline.add(self.isa)
+
+        aparse = Gst.ElementFactory.make('mpegaudioparse')
+        adec = Gst.ElementFactory.make('avdec_mp3')
+
+        self.pipeline.add(aparse)
+        self.pipeline.add(adec)
 
         for f in range(0, len(self.sources)):
             sub_pipeline(f, self.sources[f])
@@ -131,7 +131,9 @@ class Player:
         else:
             self.isv.link(vsink)
 
-        self.isa.link(asink)
+        self.isa.link(aparse)
+        aparse.link(adec)
+        adec.link(asink)
         # GLib.idle_add(self.toggle, False)
         GLib.timeout_add(1500, self.toggle)
 
