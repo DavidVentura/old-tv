@@ -1,1 +1,7 @@
 1*json
+*mp4
+__pycache__/
+ads/
+ads_orig/
+channels/
+channels.json
