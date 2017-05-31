@@ -9,11 +9,12 @@ GObject.threads_init()
 Gst.init(None)
 
 class Player:
-    FINISHING_FILE = 0
+    FINISHING_FILE = '0'
     first = {}
     count = 0
     duration = 0
-    sources = ["/home/david/git/old-tv/noise/noise.mp4",
+    sources = ["/home/david/git/old-tv/noise/test.mp4",
+               "/home/david/git/old-tv/dota.mp4",
                "/home/david/git/old-tv/fast22.mp4",
                "/home/david/git/old-tv/fast4.mp4",
                "/home/david/git/old-tv/fast5.mp4",
@@ -30,30 +31,13 @@ class Player:
             pass
 
         if t == Gst.MessageType.ASYNC_DONE:
-            if self.first:
-                print("PREROLL")
-                _, d = self.pipeline.query_duration(Gst.Format.TIME)
-                self.duration = d
-                print("Duration", d/1000000000)
-                # self.seek()
-                # self.first = False
-                return
+            for key in self.first:
+                if self.first[key]:
+                    GLib.idle_add(self.seek, key)
+                    self.first[key] = False
         elif t == Gst.MessageType.SEGMENT_DONE:
             print("Looping... src: ", message.src.name)
             GLib.idle_add(self.seek, self.FINISHING_FILE)
-            # help(message)
-            # sys.exit(1)
-            #for el in range(0, len(self.sources)):
-            #    d = self.pipeline.get_by_name("demuxer_%d" % el)
-            #    _, mydur = d.query_duration(Gst.Format.TIME)
-            #    _, cur = self.pipeline.query_position(Gst.Format.TIME)
-            #    print(mydur, self.duration, cur)
-            #    if mydur == self.duration:
-            #        print("element: %d" % el)
-            #        # print("FORCED: 0")
-            #        GLib.idle_add(self.seek, el)
-            # sys.exit(1)
-            # self.seek()
         elif t == Gst.MessageType.EOS:
             print("We got EOS on the pipeline.")
             sys.exit(1)
@@ -130,14 +114,18 @@ class Player:
             print("Current time:", self.get_cur_time())
             idx = pad.parent.get_name()[len('decoder_'):]
             print('Guessing idx: ', idx)
+            self.FINISHING_FILE = str(idx)
             GLib.idle_add(self.seek, idx)
             return Gst.PadProbeReturn.DROP
+
         if event.type == Gst.EventType.SEGMENT_DONE:
             print("PROBE: Segment")
             print("Pad: %s, child of: %s" %
                   (pad.get_name(), pad.parent.get_name()))
-            idx = pad.get_name().split("_")[1]
+            idx = pad.parent.get_name().split("_")[1]
+            print("seeking SEGMENT DONE", idx)
             self.FINISHING_FILE = idx
+            GLib.idle_add(self.seek, self.FINISHING_FILE)
             return Gst.PadProbeReturn.PASS
 
         return Gst.PadProbeReturn.PASS
@@ -188,11 +176,8 @@ class Player:
         # demuxer = self.isv.get_static_pad('src_%s' % idx)
         if self.first[idx]:
             flags = Gst.SeekFlags.FLUSH | Gst.SeekFlags.SEGMENT
-            self.first[idx] = False
-            print("NOT FIRST!!!!!!!!!")
         else:
-            # flags = Gst.SeekFlags.SEGMENT
-            flags = Gst.SeekFlags.ACCURATE | Gst.SeekFlags.SEGMENT
+            flags = Gst.SeekFlags.SEGMENT
         # self.pipeline.seek_simple(Gst.Format.TIME, flags, 0)
         demuxer.seek_simple(Gst.Format.TIME, flags, 0)
 
