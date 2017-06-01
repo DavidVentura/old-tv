@@ -17,13 +17,13 @@ Gst.init(None)
 class Player:
     FINISHING_FILE = '0'
     first = {}
-    count = 0
-    duration = 0
+    spads = {}
+    current_points = {}
     sources = ["/home/david/git/old-tv/noise/test.mp4",
-               "/home/david/git/old-tv/fast22.mp4",
+               "/home/david/git/old-tv/channel2.mp4",
                "/home/david/git/old-tv/fast4.mp4",
                "/home/david/git/old-tv/fast5.mp4",
-               "/home/david/git/old-tv/fast88.mp4"
+               "/home/david/git/old-tv/channel8.mp4"
                ]
 
     starting_points = {
@@ -123,7 +123,8 @@ class Player:
             sub_pipeline(f, self.sources[f])
 
         if not enable_bcm:
-            vsink = Gst.ElementFactory.make("autovideosink", None)
+            # vsink = Gst.ElementFactory.make("autovideosink", None)
+            vsink = Gst.ElementFactory.make("xvimagesink", None)
         else:
             vsink = Gst.ElementFactory.make("glimagesink", None)
             vsink.set_property("qos", False)
@@ -220,7 +221,7 @@ class Player:
             clock = self.pipeline.get_clock()
             if clock:
                 runtime = clock.get_time() - self.pipeline.get_base_time()
-                print("Clock! %02f" % (runtime/1000000000))
+                print("Clock! %02f" % (runtime/Gst.SECOND))
                 # pad.set_offset(clock.get_time() + self.duration) # FIXME?
 
             if "audio" in padname:
@@ -229,6 +230,8 @@ class Player:
             elif "video" in padname:
                 spad = velem.get_static_pad("sink")
                 print("linking video")
+                GObject.timeout_add(1000 * sink, self.setup_vspad,
+                                    sink, spad.get_parent_element())
 
             if spad.is_linked():
                 print("It's linked")
@@ -240,7 +243,7 @@ class Player:
     def get_cur_time(self):
         # delta = (self.filesrc.get_clock().get_time() - self.INITIAL_TIME)
         _, delta = self.pipeline.query_position(Gst.Format.TIME)
-        return delta / 1000000000
+        return delta / Gst.SECOND
 
     def seek(self, idx, t=0):
         idx = str(idx)
@@ -278,6 +281,18 @@ class Player:
             print(e)
             loop.quit()
 
+    def setup_vspad(self, idx, elem):
+        print("setting up %s" % idx)
+        self.spads[idx] = elem
+        return False  # For timeout_add
+
+    def update_timings(self):
+        for key in self.spads:
+            _, t = self.spads[key].query_position(Gst.Format.TIME)
+            val = t / Gst.SECOND
+            self.current_points[key] = val
+            print(key, val)
+
 
 if __name__ == '__main__':
     p = Player()
@@ -293,5 +308,7 @@ if __name__ == '__main__':
         p.toggle(v)
         v = v + 1
         v = v % len(p.sources)
+        if v == 0:
+            p.update_timings()
         time.sleep(1.5)
     th.join()
