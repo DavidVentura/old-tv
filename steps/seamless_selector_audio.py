@@ -13,6 +13,7 @@ except:
 GObject.threads_init()
 Gst.init(None)
 
+
 class Player:
     FINISHING_FILE = '0'
     first = {}
@@ -23,7 +24,15 @@ class Player:
                "/home/david/git/old-tv/fast4.mp4",
                "/home/david/git/old-tv/fast5.mp4",
                "/home/david/git/old-tv/fast88.mp4"
-	       ]
+               ]
+
+    starting_points = {
+            '0': 0,
+            '1': 15,
+            '2': 330,
+            '3': 44,
+            '4': 55
+    }
 
     def msg(self, bus, message):
         if not message:
@@ -37,9 +46,8 @@ class Player:
         if t == Gst.MessageType.ASYNC_DONE:
             for key in self.first:
                 if self.first[key]:
-                    GLib.idle_add(self.seek, key)
+                    GLib.idle_add(self.seek, key, self.starting_points[key])
                     self.first[key] = False
-                    break
         elif t == Gst.MessageType.SEGMENT_DONE:
             print("Looping... src: ", message.src.name)
             GLib.idle_add(self.seek, self.FINISHING_FILE)
@@ -234,17 +242,21 @@ class Player:
         _, delta = self.pipeline.query_position(Gst.Format.TIME)
         return delta / 1000000000
 
-    def seek(self, idx):
+    def seek(self, idx, t=0):
         idx = str(idx)
-        print("seeking %s" % idx)
+        print("seeking %s to %d" % (idx, t))
         demuxer = self.pipeline.get_by_name("demuxer_%s" % idx)
         # demuxer = self.isv.get_static_pad('src_%s' % idx)
-        if self.first[idx]:
-            flags = Gst.SeekFlags.FLUSH | Gst.SeekFlags.SEGMENT
+        if t != 0:
+            print("idx: %s seeking special" % idx)
+            flags = Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT
         else:
-            flags = Gst.SeekFlags.SEGMENT
+            if self.first[idx]:
+                flags = Gst.SeekFlags.FLUSH | Gst.SeekFlags.SEGMENT
+            else:
+                flags = Gst.SeekFlags.SEGMENT
         # self.pipeline.seek_simple(Gst.Format.TIME, flags, 0)
-        demuxer.seek_simple(Gst.Format.TIME, flags, 0)
+        demuxer.seek_simple(Gst.Format.TIME, flags, t * Gst.SECOND)
         return False  # Timeout add
 
     def toggle(self, target):
@@ -264,8 +276,22 @@ class Player:
             loop.run()
         except Exception as e:
             print(e)
+            loop.quit()
 
 
 if __name__ == '__main__':
     p = Player()
-    p.start()
+    import threading
+    import time
+    th = threading.Thread(target=p.start)
+    th.daemon = True
+    th.start()
+    v = 0
+    time.sleep(2)
+
+    while th.is_alive():
+        p.toggle(v)
+        v = v + 1
+        v = v % len(p.sources)
+        time.sleep(1.5)
+    th.join()
