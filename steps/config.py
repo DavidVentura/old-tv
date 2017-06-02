@@ -20,7 +20,8 @@ class Config:
     def list_saves(self):
         ret = []
         for f in os.listdir(self.path):
-            if f.endswith('json') and os.path.getsize(f) > 5:
+            if f.endswith('json') and os.path.getsize(f) > 5 and\
+               f != 'sources.json':
                 # Consider the possibility of a file writing '{}'
                 ret.append(f)
         return ret
@@ -46,12 +47,12 @@ class Config:
             pass
         return data
 
-    def save_status(self, status):
+    def save_status(self):
         seconds = str(int(round(time.time())))
         path = os.path.join(self.path, seconds + ".json")
         print("Saving status to ", path)
         with open(path, "w") as f:
-            f.write(json.dumps(status, sort_keys=False, indent=4))
+            f.write(json.dumps(self.status, sort_keys=False, indent=4))
 
     def __init__(self):
         if not os.path.isdir(self.path):
@@ -60,7 +61,6 @@ class Config:
 
         statusfile = os.path.join(self.path, "1492733314.json")
         statusfile = self.newest_file(self.list_saves())
-        statusfile = ''
         self.status = self.load_status(statusfile)
         self.sources = self.load_status(sourcesfile)
 
