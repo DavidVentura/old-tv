@@ -7,6 +7,7 @@ from pprint import pprint
 
 class Config:
     path = ''
+    sources = []
     status = {}
     initial_values = {
         '0': 0,
@@ -55,10 +56,13 @@ class Config:
     def __init__(self):
         if not os.path.isdir(self.path):
             self.path = os.getcwd()
+        sourcesfile = os.path.join(self.path, "sources.json")
+
         statusfile = os.path.join(self.path, "1492733314.json")
         statusfile = self.newest_file(self.list_saves())
         statusfile = ''
         self.status = self.load_status(statusfile)
+        self.sources = self.load_status(sourcesfile)
 
 
 if __name__ == "__main__":

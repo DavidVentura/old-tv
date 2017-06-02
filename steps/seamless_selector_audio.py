@@ -19,12 +19,6 @@ class Player:
     first = {}
     spads = {}
     current_points = {}
-    sources = ["/home/david/git/old-tv/noise/test.mp4",
-               "/home/david/git/old-tv/channel2.mp4",
-               "/home/david/git/old-tv/fast4.mp4",
-               "/home/david/git/old-tv/fast5.mp4",
-               "/home/david/git/old-tv/channel8.mp4"
-               ]
 
     def msg(self, bus, message):
         if not message:
@@ -56,8 +50,9 @@ class Player:
             return
             # print("Unexpected message:", t)
 
-    def __init__(self, starting_points):
+    def __init__(self, starting_points, sources):
         self.starting_points = starting_points
+        self.sources = sources
         self.mainloop = GObject.MainLoop()
         self.pipeline = Gst.Pipeline.new("mypipeline")
         self.pipeline.bus.add_signal_watch()

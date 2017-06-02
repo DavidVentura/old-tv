@@ -7,7 +7,7 @@ import time
 
 if __name__ == '__main__':
     cfg = Config()
-    p = Player(cfg.status)
+    p = Player(cfg.status, cfg.sources)
     t1 = threading.Thread(target=p.start)
     t1.daemon = True
     t1.start()
