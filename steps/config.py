@@ -7,6 +7,7 @@ from pprint import pprint
 
 class Config:
     path = ''
+    status = {}
     initial_values = {
         '0': 0,
         '1': 0,
@@ -59,8 +60,7 @@ class Config:
         statusfile = ''
         self.status = self.load_status(statusfile)
 
-        pprint(self.status)
-
 
 if __name__ == "__main__":
     c = Config()
+    pprint(c.status)

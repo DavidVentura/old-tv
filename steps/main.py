@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 from seamless_selector_audio import Player
 from gpio import Control
+from config import Config
 import threading
 import time
 
 if __name__ == '__main__':
-    p = Player()
+    cfg = Config()
+    p = Player(cfg.status)
     t1 = threading.Thread(target=p.start)
     t1.daemon = True
     t1.start()
