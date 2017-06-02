@@ -13,7 +13,12 @@ class Timer:
     def start(self):
         self.running = True
         while self.running:
-            time.sleep(self.interval)
+            # Wait up to 1 second to be interrupted
+            for _ in range(self.interval):
+                if not self.running:
+                    return
+                time.sleep(1)
+            print("I'm about to call my callback", flush=True)
             if self.arg is not None:
                 if callable(self.arg):
                     self.callback(self.arg())
