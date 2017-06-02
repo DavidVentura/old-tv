@@ -68,3 +68,4 @@ class Config:
 if __name__ == "__main__":
     c = Config()
     pprint(c.status)
+    pprint(c.sources)
