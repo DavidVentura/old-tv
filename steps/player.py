@@ -2,8 +2,10 @@
 from seamless_selector_audio import Player
 from gpio import Control
 from config import Config
+from timer import Timer
 import threading
 import time
+
 
 if __name__ == '__main__':
     cfg = Config()
@@ -19,7 +21,16 @@ if __name__ == '__main__':
     t2.daemon = True
     t2.start()
 
+    t = Timer(60, cfg.save_status, p.update_timings)
+    t3 = threading.Thread(target=t.start)
+    t3.daemon = True
+    t3.start()
+
     t1.join()
+
     c.stop()
     t2.join()
+
+    t.stop()
+    t3.join()
     print("end control")
