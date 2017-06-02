@@ -43,25 +43,24 @@ class Config:
             with open(fname, 'r') as f:
                 data = json.loads(f.read())
         except Exception as e:
-            # print(e)
-            pass
+            print(e)
         return data
 
-    def save_status(self):
+    def save_status(self, status):
         seconds = str(int(round(time.time())))
         path = os.path.join(self.path, seconds + ".json")
         print("Saving status to ", path)
         with open(path, "w") as f:
-            f.write(json.dumps(self.status, sort_keys=False, indent=4))
+            f.write(json.dumps(status, sort_keys=False, indent=4))
 
     def __init__(self):
         if not os.path.isdir(self.path):
             self.path = os.getcwd()
         sourcesfile = os.path.join(self.path, "sources.json")
 
-        statusfile = os.path.join(self.path, "1492733314.json")
         statusfile = self.newest_file(self.list_saves())
         self.status = self.load_status(statusfile)
+        self.status['0'] = 0  # Hard-code noise start time
         self.sources = self.load_status(sourcesfile)
 
 
