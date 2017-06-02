@@ -282,7 +282,7 @@ class Player:
             val = t / Gst.SECOND
             self.current_points[key] = val
             print(key, val)
-        return self.spads
+        return self.current_points
 
 
 if __name__ == '__main__':
