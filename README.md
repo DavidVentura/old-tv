@@ -98,8 +98,17 @@ gpu_mem=128
 avoid_warnings=1
 initial_turbo=60
 dtparam=audio=on # enable stereo jack
+
+boot_delay=0 #delay, in seconds before booting. Defaults to 1
+disable_splash=1
 ```
 
+### cmdline.txt
+
+```
+dwc_otg.lpm_enable=0 console=serial0,115200 console=tty3 loglevel=0 vt.global_cursor_default=0 root=PARTUUID=782df043-02 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait logo.nologo fastboot noswap systemd.unit=multi-user.target quiet
+
+```
 
 ### Misc info and problems
 
