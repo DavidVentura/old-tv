@@ -14,6 +14,11 @@ GObject.threads_init()
 Gst.init(None)
 
 
+def debug(msg):
+    if False:
+        print(msg)
+
+
 class Player:
     FINISHING_FILE = '0'
     first = {}
@@ -167,23 +172,21 @@ class Player:
         # if event.type == Gst.EventType.GAP or \
         if event.type == Gst.EventType.TAG:
             return Gst.PadProbeReturn.PASS
-        print('event %s on pad %s', event.type, pad.get_name())
+        debug('event %s on pad %s' % (event.type, pad.get_name()))
         if event.type == Gst.EventType.EOS:
-            print("Pad: %s, child of: %s" %
-                  (pad.get_name(), pad.parent.get_name()))
-            print("Current time:", self.get_cur_time())
+            debug("Pad: %s, child of: %s" % (pad.get_name(), pad.parent.get_name()))
+            debug("Current time: %s" % self.get_cur_time())
             idx = pad.parent.get_name()[len('decoder_'):]
-            print('Guessing idx: ', idx)
+            debug('Guessing idx: %s' % idx)
             self.FINISHING_FILE = str(idx)
             GLib.idle_add(self.seek, idx)
             return Gst.PadProbeReturn.DROP
 
         if event.type == Gst.EventType.SEGMENT_DONE:
-            print("PROBE: Segment")
-            print("Pad: %s, child of: %s" %
-                  (pad.get_name(), pad.parent.get_name()))
+            debug("PROBE: Segment")
+            debug("Pad: %s, child of: %s" % (pad.get_name(), pad.parent.get_name()))
             idx = pad.parent.get_name().split("_")[1]
-            print("seeking SEGMENT DONE", idx)
+            debug("seeking SEGMENT DONE %s" % idx)
             self.FINISHING_FILE = idx
             GLib.idle_add(self.seek, self.FINISHING_FILE)
             return Gst.PadProbeReturn.PASS
@@ -209,7 +212,6 @@ class Player:
             clock = self.pipeline.get_clock()
             if clock:
                 runtime = clock.get_time() - self.pipeline.get_base_time()
-                print("Clock! %02f" % (runtime/Gst.SECOND))
                 # pad.set_offset(clock.get_time() + self.duration) # FIXME?
 
             if "audio" in padname:
@@ -235,7 +237,7 @@ class Player:
 
     def seek(self, idx, t=0):
         idx = str(idx)
-        print("seeking %s to %d" % (idx, t))
+        debug("seeking %s to %d" % (idx, t))
         demuxer = self.pipeline.get_by_name("demuxer_%s" % idx)
         # demuxer = self.isv.get_static_pad('src_%s' % idx)
         if t != 0:
@@ -253,7 +255,7 @@ class Player:
     def toggle(self, target):
         target = max(0, target)
         target = min(target, len(self.sources) - 1)
-        print("Toggling %d" % target)
+        debug("Toggling %d" % target)
         newpad = self.isv.get_static_pad('sink_%d' % target)
         self.isv.set_property('active-pad', newpad)
 
