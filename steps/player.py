@@ -9,6 +9,7 @@ import time
 
 if __name__ == '__main__':
     cfg = Config()
+    print(cfg.status, flush=True)
     p = Player(cfg.status, cfg.sources)
     t1 = threading.Thread(target=p.start)
     t1.daemon = True
