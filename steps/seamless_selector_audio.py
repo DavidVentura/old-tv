@@ -220,7 +220,7 @@ class Player:
             elif "video" in padname:
                 spad = velem.get_static_pad("sink")
                 print("linking video")
-                GObject.timeout_add(1000 * sink, self.setup_vspad,
+                GObject.timeout_add(2000 + 1000 * sink, self.setup_vspad,
                                     sink, spad.get_parent_element())
 
             if spad.is_linked():
