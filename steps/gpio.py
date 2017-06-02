@@ -2,10 +2,8 @@
 import RPi.GPIO as GPIO
 import time
 
-
 class Control:
     gpios = [4, 17, 27, 22]
-
     def __init__(self, cb):
         self.cb = cb
         GPIO.setmode(GPIO.BCM)
@@ -17,18 +15,25 @@ class Control:
 
     def start(self):
         last = -2
+        gpio_to_channel = {
+        	-1: -1,
+        	17: 2,
+        	4:  4,
+        	27: 5,
+        	22: 8
+        }
         gpio_to_isv = {
-            -1: 0,
-            17: 1,
-            4:  2,
-            27: 3,
-            22: 4
+        	-1: 0,
+        	27: 1,
+        	17: 2,
+        	4:  3,
+        	22: 4
         }
         while self.running:
+            valid = False
             value = -1
             for g in self.gpios:
-                v = GPIO.input(g)
-                if v:
+                if GPIO.input(g):
                     value = g
             if value != last:
                 self.cb(gpio_to_isv[value])
@@ -37,7 +42,6 @@ class Control:
 
     def stop(self):
         self.running = False
-
 
 if __name__ == '__main__':
     c = Control(print)
