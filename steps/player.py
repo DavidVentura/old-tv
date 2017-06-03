@@ -22,7 +22,7 @@ if __name__ == '__main__':
     t2.daemon = True
     t2.start()
 
-    t = Timer(60, cfg.save_status, p.update_timings)
+    t = Timer(300, cfg.save_status, p.update_timings)
     t3 = threading.Thread(target=t.start)
     t3.daemon = True
     t3.start()
