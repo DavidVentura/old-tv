@@ -22,8 +22,14 @@ class Config:
         for f in os.listdir(self.path):
             if f.endswith('json') and os.path.getsize(f) > 5 and\
                f != 'sources.json':
-                # Consider the possibility of a file writing '{}'
-                ret.append(f)
+                try:
+                    json.loads(open(f).read())
+                    # Consider the possibility of a file writing '{}'
+                    ret.append(f)
+                except Exception as e:
+                    print("couldn't load %s because %s. Deleting." % (f, e))
+                    os.remove(f)
+                    continue
         return ret
 
     def newest_file(self, xs):
@@ -43,7 +49,7 @@ class Config:
             with open(fname, 'r') as f:
                 data = json.loads(f.read())
         except Exception as e:
-            print(e)
+            print("Invalid load_status. File: %s, Except: %s" % (fname, e))
         return data
 
     def save_status(self, status):
