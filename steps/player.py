@@ -9,7 +9,7 @@ import time
 
 
 counter = 0
-MAX_COUNT = 10
+MAX_COUNT = 5
 
 
 def shutdown(val):
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     t3.daemon = True
     t3.start()
 
-    ti = Timer(3, shutdown, p.get_current_channel)
+    ti = Timer(5, shutdown, p.get_current_channel)
     t4 = threading.Thread(target=ti.start)
     t4.daemon = True
     t4.start()
