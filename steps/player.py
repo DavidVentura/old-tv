@@ -3,9 +3,27 @@ from seamless_selector_audio import Player
 from gpio import Control
 from config import Config
 from timer import Timer
+import subprocess
 import threading
 import time
 
+
+counter = 0
+MAX_COUNT = 10
+
+
+def shutdown(val):
+    global counter
+    print('shutdown val %s' % val)
+    if val == 0 or val == '0':
+        counter += 1
+    else:
+        counter = 0
+    print('counter %d' % counter)
+
+    if counter >= MAX_COUNT:
+        print('powering off')
+        subprocess.Popen(['sudo', 'poweroff'])
 
 if __name__ == '__main__':
     cfg = Config()
@@ -26,6 +44,11 @@ if __name__ == '__main__':
     t3 = threading.Thread(target=t.start)
     t3.daemon = True
     t3.start()
+
+    ti = Timer(3, shutdown, p.get_current_channel)
+    t4 = threading.Thread(target=ti.start)
+    t4.daemon = True
+    t4.start()
 
     t1.join()
 

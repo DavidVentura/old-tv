@@ -2,6 +2,7 @@
 import ctypes
 import gi
 import sys
+import os
 import platform
 gi.require_version('Gst', '1.0')
 try:
@@ -49,8 +50,8 @@ class Player:
             err, dbg = message.parse_error()
             print("ERROR:", message.src.get_name(), " ", err.message)
             if dbg:
-                print("debugging info:", dbg)
-            loop.quit()
+                print("restarting program:", dbg)
+            os.execl(sys.executable, sys.executable, *sys.argv)
         else:
             return
             # print("Unexpected message:", t)
@@ -283,6 +284,10 @@ class Player:
             self.current_points[key] = val
             print(key, val)
         return self.current_points
+
+    def get_current_channel(self):
+        name = self.isv.get_property('active-pad').get_name()
+        return name.split("_")[1]
 
 
 if __name__ == '__main__':
