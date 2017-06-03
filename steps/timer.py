@@ -18,7 +18,8 @@ class Timer:
                 if not self.running:
                     return
                 time.sleep(1)
-            print("I'm about to call my callback", flush=True)
+            if interval > 5:
+                print("I'm about to call my callback", flush=True)
             if self.arg is not None:
                 if callable(self.arg):
                     self.callback(self.arg())
